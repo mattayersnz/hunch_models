@@ -120,8 +120,7 @@ export default function Home() {
             </section>
 
             <footer>
-                <span>Hunch models</span>
-                <span>Hunches, tested in context.</span>
+                <span>Designed and built by Matt Ayers</span>
             </footer>
         </main>
     );
