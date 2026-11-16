@@ -45,12 +45,10 @@ export default function Home() {
                         share one, then learn what matches, what differs, and what is missing.
                     </p>
                     <div className="heroActions">
-                        <div className="heroDownload">
-                            <AppStoreLink />
-                        </div>
                         <nav className="heroLinks" aria-label="Hunch models">
                             <a className="agentLink" href="/agents">Create with any agent</a>
                             <a className="agentLink" href="/dashboard">Your models</a>
+                            <a className="agentLink agentLinkDown" href="#app">The Hunch app</a>
                         </nav>
                     </div>
                 </div>
@@ -92,10 +90,25 @@ export default function Home() {
                     <p className="eyebrow">Create one</p>
                     <h2 id="closing-title">Make your hunch concrete.</h2>
                     <p>
-                        Create a model in Hunch, or ask any agent that supports MCP to create
-                        and publish one from Markdown.
+                        Hunch models is a tool of its own, and you do not need an app to
+                        use it. Ask any agent that supports MCP to create and publish a
+                        model from Markdown, then share the link.
                     </p>
                 </div>
+                <a className="agentLink" href="/agents">Create with any agent</a>
+            </section>
+
+            <section className="closing" id="app" aria-labelledby="app-title">
+                <div>
+                    <p className="eyebrow">The Hunch app</p>
+                    <h2 id="app-title">A Markdown editor with hunch models built in.</h2>
+                    <p>
+                        Hunch is a separate app for writing notes in Markdown. It is one way
+                        to use this tool: write a model as a note, preview it as you type,
+                        publish it here, and read each response beside the line it is about.
+                    </p>
+                </div>
+                <AppStoreLink />
             </section>
 
             <footer>

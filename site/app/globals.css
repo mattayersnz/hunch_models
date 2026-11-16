@@ -126,18 +126,13 @@ h3 {
     }
 }
 
-.heroDownload {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
+/* Three links and nothing else: the App Store badge has its own section
+   further down, so the hero is about the tool rather than the app. */
 .heroLinks {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding-left: 28px;
-    border-left: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 0 24px;
 }
 
 .heroActions p {
@@ -199,6 +194,15 @@ h3 {
 
 .agentLink:hover::after {
     transform: translateX(3px);
+}
+
+/* A link to a section of this page points down, not away. */
+.agentLinkDown::after {
+    content: "\2193";
+}
+
+.agentLinkDown:hover::after {
+    transform: translateY(3px);
 }
 
 .agentLink:focus-visible {
@@ -866,6 +870,11 @@ small {
     max-width: 700px;
 }
 
+/* The link or badge beside the copy keeps its own size. */
+.closing > a {
+    flex: none;
+}
+
 .closing div > p:last-child {
     max-width: 620px;
     margin-bottom: 0;
@@ -961,11 +970,6 @@ footer {
 
     .heroActions p {
         max-width: none;
-    }
-
-    .heroLinks {
-        padding-left: 0;
-        border-left: 0;
     }
 
     .why,
