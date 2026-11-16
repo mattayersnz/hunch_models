@@ -8,3 +8,4 @@ examples/out/
 *.tsbuildinfo
 supabase/.temp/
 supabase/.branches/
+.vercel
