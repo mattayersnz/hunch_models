@@ -11,7 +11,9 @@ people open a link and say whether it matches their world. Not "is my idea good?
 This repo is public and MIT. It holds the format, the renderer, the piece kit, and the site
 at **https://hunch.tech**. The Hunch app (github.com/mattayersnz/hunch) composes notes into
 this format and talks to the site's API; its own CLAUDE.md has a "Hunch models" section for
-that side.
+that side. Since 16 November 2026 there is a second way in: an outside agent (Claude, Codex,
+any MCP client) connects to **https://hunch.tech/mcp** and publishes a model from Markdown.
+See "Agent access" below.
 
 **Usually you are inside the Hunch repo, at `hunch/models/`**, where this repo is a git
 submodule. Then the Hunch repo's `scripts/models.sh` is how work here is checked and shipped
@@ -22,7 +24,8 @@ it goes with.
 ```
  model note (.md, truth) ──► Hunch ──► model.json ──► renderer ──► HTML + SVG
  in a Hunch collection      (Swift)   (FORMAT.md)    (this repo)   at hunch.tech/m/:slug
-        ▲                                                                  │
+        ▲                                 ▲                                │
+        │      Markdown from an agent ──► /mcp (readModelMarkdown)         │
         └──────── responses, shown in Hunch beside their lines ◄── API ◄───┘
 ```
 
@@ -35,12 +38,12 @@ Node 22.18+ runs the TypeScript directly; there is no compile step for the packa
 
 ```bash
 npm install          # dev dependencies only: typescript, @types/node, esbuild; the site's own
-npm test             # tests/model.test.ts: ids, reading, layout, rendering
+npm test             # tests/*.test.ts: ids, reading, layout, rendering, the Markdown compiler
 npm run check        # tsc over packages, examples, tests and scripts (the site has its own tsconfig)
 npm run build        # examples/*.json → examples/out/*.html, dark and light
 npm run bundle       # the renderer as one script → the Hunch app's Resources/model-renderer.js
 npm run dev          # the site at http://127.0.0.1:4620 (needs local Supabase, below)
-npm run smoke        # 20 end-to-end checks against the local site, codes read from Mailpit
+npm run smoke        # 25 end-to-end checks against the local site, codes read from Mailpit
 npx tsc -p site      # typecheck the site
 ```
 
@@ -52,6 +55,11 @@ supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtim
 
 Copy `site/.env.example` to `site/.env.local` and fill it from `supabase status`. Mailpit
 (sign-in emails) is at http://127.0.0.1:55324.
+
+`supabase/config.toml` needs Supabase CLI **2.117 or later**: an older one refuses it with
+"'db' has invalid keys". Matt's Mac has two, and a shell may find the old one first, so use
+`/opt/homebrew/bin/supabase` there. The same goes for Node: `nvm` may default to 18, and
+these commands need 22.18+.
 
 The smoke test against the **live** site, which emails one real code to Resend's test inbox,
 takes every other code from the auth admin API, and deletes every user it made:
@@ -69,6 +77,7 @@ publish and delete without cleaning up users.
 packages/model/src/   format.ts   the document types and limits
                       ids.ts      content-keyed piece ids (part of the format)
                       read.ts     readModel: the one way in; lenient, recomputes every id
+                      markdown.ts readModelMarkdown: Markdown from an agent → a draft → readModel
                       layout.ts   where everything in a scene goes; pure and deterministic
                       render.ts   modelHtml / pageHtml / sceneSvg; marks are separated here
                       browser.ts  previewHtml(json) for Hunch's offline preview (bundled)
@@ -76,11 +85,14 @@ packages/kit/src/     iso.ts      projection, extrusion, four-tone shading, fitt
                       pieces.ts   the kit: a person (stand, sit) and ~22 props, with aliases
                       svg.ts      solids to markup
                       theme.ts    THEME_CSS (dark, light, auto) and PAGE_CSS
-site/                 Next.js 16 on Vercel; route handlers only (see "The site")
+site/                 Next.js 16 on Vercel (see "The site" and "Agent access")
+                      AGENT_PROTOCOL.md  what an outside agent is told; served three ways
+                      lib/mcp.ts         the MCP tools; lib/mcp-auth.ts who may call them
+                      lib/browser-auth.ts  the web account's cookie session
 supabase/             migrations/, sign-in email templates, config.toml (local)
 examples/             five models as JSON, and build.ts
 scripts/              bundle.ts, smoke.ts
-tests/                model.test.ts
+tests/                model.test.ts, markdown.test.ts
 ```
 
 `packages/kit` and `packages/model` are npm workspaces (`@hunch/kit`, `@hunch/model`) whose
@@ -145,8 +157,10 @@ projection, extrusion, four-tone shading. Machine parts were deliberately not ca
 
 ## The site
 
-Next.js on Vercel, but **every page and endpoint is a route handler**; no React runs on a
-model page. `/m/:slug` returns the renderer's own HTML plus a few lines of plain script for
+Next.js on Vercel. **A model page and every API endpoint is a route handler**; no React runs
+on a model page. The web account's pages (`/sign-in`, `/auth/confirm`, `/dashboard`,
+`/oauth/consent`, `/agents`) are ordinary server components with no client script: every
+action is a form post. `/m/:slug` returns the renderer's own HTML plus a few lines of plain script for
 responding (`site/lib/page.ts`), under a strict CSP with a per-request nonce,
 `referrer-policy: no-referrer` (an invite key is in the URL), and `no-store`.
 
@@ -170,6 +184,19 @@ answer "not found", so a slug alone says nothing about whether a private model e
 | `PATCH /api/responses/:id` | owner | hide or show |
 | `GET /m/:slug[?k=key]` | anyone with the link | the page |
 | `POST /m/:slug/respond` | anyone with the link | resonates, differs, a note or an idea |
+| `POST /mcp` | an approved agent | the MCP tools (Streamable HTTP, stateless, JSON replies) |
+| `GET /.well-known/oauth-protected-resource/mcp` | anyone | where an MCP client finds the OAuth server |
+| `GET /agents` · `/agents/protocol.md` · `/llms.txt` | anyone | the agent protocol, as a page and as Markdown |
+| `GET /sign-in`, `POST /api/web-auth/code` | anyone | ask for a sign-in email |
+| `GET /auth/confirm`, `POST /api/web-auth/verify` | the email's reader | a button; pressing it signs the browser in |
+| `POST /api/web-auth/sign-out` | web owner | end the browser session |
+| `GET /dashboard`, `/dashboard/models/:slug` | web owner | models, invites, responses, connected agents |
+| `POST /api/dashboard` | web owner | visibility, invites, hide a response, unpublish, disconnect an agent, delete the account |
+| `GET /oauth/consent`, `POST /api/oauth/consent` | web owner | approve or refuse an agent's connection |
+
+The first block is the Hunch app's REST API, with a bearer session. The web account is a
+cookie session. `/mcp` takes only an OAuth token. The three do not accept each other's
+credentials, and that is the design, not an accident (see "Agent access").
 
 Rules worth knowing before changing any of it:
 
@@ -214,15 +241,111 @@ Rules worth knowing before changing any of it:
   the button's POST verifies. Copies are in `supabase/templates/`; the hosted templates are
   pasted in by the owner and must match. hunch.tech's DNS also carries Google Workspace mail records — leave
   them alone when changing anything there.
-- **Agent access** is remote Streamable HTTP MCP at `/mcp`, protected by Supabase's OAuth
-  2.1 server and dynamic client registration. The hosted Auth settings must enable the OAuth
-  server, use `https://hunch.tech/oauth/consent`, allow dynamic registration and enable the
-  `public.hunch_access_token_hook` custom access-token hook. `site/AGENT_PROTOCOL.md` is the
-  one source used by `/agents`, `/agents/protocol.md` and the MCP resources. OAuth tokens are
-  MCP-only: `site/lib/http.ts` refuses them on Hunch's private REST API, and
-  `browserUser` refuses them as a dashboard session, since a token can be put in a cookie.
-  Every MCP call also asks Supabase whether the token still stands, so Disconnect is
-  immediate. Form posts that read the session check `sameOrigin`.
+- **Agent access** needs hosted Auth settings no migration can make: the OAuth server, its
+  consent path, dynamic registration and the access-token hook. They are listed under
+  "Agent access" above, with how to tell whether they are set.
+
+## Agent access
+
+An outside agent connects to `/mcp`, the person signs in on hunch.tech and approves it, and
+the agent can then validate, publish and update models from Markdown, manage invites and
+read responses. `site/AGENT_PROTOCOL.md` is what the agent is told, and it is the one source
+for `/agents`, `/agents/protocol.md` and the MCP resource `hunch://protocol/markdown`:
+change behaviour and that file together.
+
+**As of 16 November 2026 the code is live and no agent can connect yet.** The hosted
+project's OAuth server was still off (its discovery address answered 404). Matt has to set,
+in the Supabase dashboard: the OAuth server on, consent path `/oauth/consent`, dynamic
+client registration on, the custom access-token hook `public.hunch_access_token_hook`, and
+the two email templates from `supabase/templates/`. Check
+`<SUPABASE_URL>/auth/v1/.well-known/oauth-authorization-server` before assuming it is done.
+
+**What an agent may not do is the point.** No tool unpublishes, hides a response or deletes
+the account, and the consent page promises exactly that. Keep those human-only, in the
+dashboard. Publishing defaults to invite-only; public needs to be asked for.
+
+**An OAuth token is good at `/mcp` and nowhere else, and three places enforce it.**
+Supabase's OAuth tokens are ordinary user JWTs, and its `/user` endpoint accepts them
+(measured), so each surface has to refuse them itself:
+
+- `requireOwner` (`lib/http.ts`) refuses a bearer token carrying `client_id` on the REST API.
+- `browserUser` (`lib/browser-auth.ts`) refuses one as a cookie session. Without that, an
+  agent could put its own token in the session cookie and reach `/api/dashboard`, which
+  deletes models and accounts. A new page or form post that reads the session must go
+  through `browserUser`, never `getUser` directly.
+- `mcpOwner` (`lib/mcp-auth.ts`) accepts only a token with `client_id` and the MCP audience,
+  so an app or browser session is refused there.
+
+**The audience comes from a database hook.** `hunch_access_token_hook` (the
+`20261116000100_mcp_oauth` migration) stamps every OAuth client's token with
+`aud = https://hunch.tech/mcp`. It is hardcoded, so a local token carries the production
+audience and `mcpOwner` allows that outside production only. If the hook is not enabled,
+every MCP call is refused: it fails closed.
+
+**Every MCP call asks Supabase whether the token still stands** (`admin().auth.getUser`),
+after checking its signature. A signature only proves the token was issued; without the
+second question a disconnected agent, or one whose account was deleted, kept working until
+the token expired, up to an hour. It costs one request per call and is why Disconnect is
+immediate.
+
+**Form posts check `Origin` (`sameOrigin`), every one of them.** Cookies are `SameSite=Lax`,
+which is not the whole answer: `/api/web-auth/code` takes no cookie at all, and without the
+check another site could have a visitor's browser ask for a sign-in email.
+
+**The sign-in email's link must not sign anyone in when it is opened.** One template serves
+both the Hunch app (which wants the code typed in) and the web account (which wants a link),
+and the code and the link are the same one-time token. `{{ .ConfirmationURL }}` spends it on
+GET, so a mail scanner following links would use up the code before the person typed it.
+The link goes to `/auth/confirm?token_hash=…`, which shows a button; the button's POST to
+`/api/web-auth/verify` spends the token. Where to land afterwards is a cookie set when the
+email was asked for, not part of the link, so a link opened in another browser lands on the
+dashboard.
+
+**The consent page shows where approval sends the connection.** With dynamic registration
+anyone can register a client called "Claude", so the name proves nothing and the redirect
+host is shown beside it.
+
+**`readModelMarkdown` follows Hunch's grammar, and privacy is the reason.** It reads the
+default spelling of a model note and hands a draft to `readModel`, so ids, limits and
+cleaning still have one home. Each of these was a published private line before it was a
+rule, and `tests/markdown.test.ts` holds a case for each:
+
+- Before the first scene only the first line of plain prose is published, as the premise.
+  A task, a `[thought]` or a bullet there stays private.
+- Tasks and pasted lists are tested before anything that could publish them. `[ ] call [Bob]`
+  starts with `[` and ends with `]` and was once a thought.
+- A line led by a `[[link]]` is an action, not a thought.
+- A scene's emoji is the line's first whole character by Hunch's rule (`isSectionEmoji`):
+  a family, a flag or a skin tone opens a scene, a digit keycap does not, and a bullet is
+  tried first.
+- Markers strip one pass each, and `*` only singly, as `LineParser.splitMarkers` does.
+
+Hunch's `scripts/test-models.sh` hands its sample note to this compiler and requires the
+same model.json the app composes. That is one sample, so a rule changed on either side wants
+a case added here too.
+
+**It is deliberately stricter than the app in one place.** In Hunch, a task or a numbered
+line inside a scene is published as something the person does. From an agent they stay
+private, because an agent's Markdown is likelier to carry a stray to-do. So the same note
+can publish differently by the two routes; do not "fix" either to match without deciding
+that.
+
+**Smaller rules.** `publish_model` takes back a model whose invite could not be made, and
+allows 20 new models an hour per owner (`PUBLISH_LIMIT`). A tool failure carries a code
+(`invalid_model`, `not_found`, `rate_limited`, `tool_failed`, `server_error`), and only an
+`HttpError` this site threw is repeated to the agent: a database error names tables, so it
+is logged instead. `/mcp` answers, the 401 included, carry CORS headers for browser
+clients. `site/proxy.ts` refreshes the browser session and skips `/mcp`, the discovery
+document and the app's REST routes, which never carry cookies. `protocol.ts` reads
+`AGENT_PROTOCOL.md` from disk at load, which is why `next.config.ts` traces it into the
+build.
+
+**Checking it.** The smoke test covers discovery, the 401 and the sign-in page, not a
+connection. On 16 November 2026 the whole path was driven by a throwaway script against
+local Supabase and passed: register a client at `/auth/v1/oauth/clients/register`, authorize
+with PKCE, approve at `/api/oauth/consent` with a signed-in cookie jar, exchange the code,
+call the tools, try the token on the REST API and in a forged cookie, disconnect, and call
+again. That script is not in the repo; it belongs in `scripts/smoke.ts`.
 
 ## Hunch, the other half
 
@@ -232,6 +355,9 @@ Rules worth knowing before changing any of it:
   `hunch/Resources/model-renderer.js` (from `hunch/models/`, or from a `../hunch` beside this
   repo). Re-bundle after any change to `packages/`, and commit the regenerated file in the
   Hunch repo; `scripts/models.sh check` there fails while it is stale. Do not edit it by hand.
+- An agent's Markdown is compiled here by `readModelMarkdown`, which mirrors what
+  `ModelComposer.swift` and `LineParser.swift` do with a model note. A change to how Hunch
+  reads a model note wants the same change there.
 - Its client (`ModelService.swift`) speaks the API above. A breaking change to a route or
   a reply shape needs the matching change in Hunch, and Hunch builds that shipped stay in the
   wild: prefer additive changes.
@@ -253,3 +379,8 @@ Rules worth knowing before changing any of it:
 
 - In Hunch, a response does not yet scroll the editor to its line.
 - The home page at hunch.tech is a placeholder.
+- Agent access is deployed but not switched on in the hosted Supabase project, and no real
+  MCP client (Claude, Codex) has connected to hunch.tech yet.
+- The OAuth and MCP path has no automated test; the smoke test stops at the 401.
+- `readModelMarkdown` reads Hunch's default spelling only. A person who has respelled
+  their grammar in Hunch publishes correctly from the app and not from an agent.
