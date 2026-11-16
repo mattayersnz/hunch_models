@@ -1,6 +1,9 @@
 // Bundles the renderer into one dependency-free script for Hunch's offline preview.
 //   node scripts/bundle.ts [out-file]
-// Default out-file is ../hunch/hunch/Resources/model-renderer.js, when that repo is beside this one.
+//
+// Without an out-file it writes into the Hunch app's Resources: from inside the Hunch
+// repo when this is its `models/` submodule, else from a `../hunch` checkout beside this
+// one, else into dist/.
 
 import { build } from "esbuild";
 import { existsSync } from "node:fs";
@@ -8,8 +11,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const fallback = join(root, "..", "hunch", "hunch", "Resources", "model-renderer.js");
-const out = process.argv[2] ?? (existsSync(dirname(fallback)) ? fallback : join(root, "dist", "model-renderer.js"));
+/** The Hunch app's Resources folder for a Hunch repo root, if that is one. */
+const resourcesIn = (repo: string): string | null =>
+    existsSync(join(repo, "hunch.xcodeproj")) ? join(repo, "hunch", "Resources") : null;
+const resources = resourcesIn(join(root, "..")) ?? resourcesIn(join(root, "..", "hunch"));
+const out = process.argv[2] ?? (resources ? join(resources, "model-renderer.js") : join(root, "dist", "model-renderer.js"));
 
 await build({
     entryPoints: [join(root, "packages/model/src/browser.ts")],

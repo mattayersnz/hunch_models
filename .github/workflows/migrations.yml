@@ -1,0 +1,46 @@
+# Applies new Supabase migrations when they reach main.
+#
+# Vercel deploys the site on the same push, and the two run side by side, so a migration
+# must be safe for the code already live: add, never rename or drop in the same commit as
+# the code that stops using it. Ship a migration in its own push first when in doubt.
+#
+# Needs, in this repo's Settings → Secrets and variables → Actions:
+#   secret   SUPABASE_ACCESS_TOKEN   a personal access token from supabase.com/dashboard/account/tokens
+#   variable SUPABASE_PROJECT_REF    the hosted project's ref
+#   secret   SUPABASE_DB_PASSWORD    optional; the CLI can sign in with the token alone
+
+name: Supabase migrations
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Check the workflow is configured
+        run: |
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::Set the SUPABASE_ACCESS_TOKEN secret"; exit 1; }
+          [ -n "$PROJECT_REF" ] || { echo "::error::Set the SUPABASE_PROJECT_REF variable"; exit 1; }
+      - name: What will be applied
+        run: supabase db push --project-ref "$PROJECT_REF" --dry-run
+      - name: Apply
+        run: supabase db push --project-ref "$PROJECT_REF" --yes

@@ -9,9 +9,15 @@ people open a link and say whether it matches their world. Not "is my idea good?
 "is this how it is for you?"
 
 This repo is public and MIT. It holds the format, the renderer, the piece kit, and the site
-at **https://hunch.tech**. The Hunch app (`~/Projects/hunch`, a separate repo) composes notes
-into this format and talks to the site's API; its own CLAUDE.md has a "Hunch models"
-section for that side.
+at **https://hunch.tech**. The Hunch app (github.com/mattayersnz/hunch) composes notes into
+this format and talks to the site's API; its own CLAUDE.md has a "Hunch models" section for
+that side.
+
+**Usually you are inside the Hunch repo, at `hunch/models/`**, where this repo is a git
+submodule. Then the Hunch repo's `scripts/models.sh` is how work here is checked and shipped
+(`setup`, `check`, `ship`), and "Working across both repos" in its CLAUDE.md is the
+playbook. Commit here as in any repo; the Hunch repo then records which commit of this one
+it goes with.
 
 ```
  model note (.md, truth) ──► Hunch ──► model.json ──► renderer ──► HTML + SVG
@@ -32,7 +38,7 @@ npm install          # dev dependencies only: typescript, @types/node, esbuild; 
 npm test             # tests/model.test.ts: ids, reading, layout, rendering
 npm run check        # tsc over packages, examples, tests and scripts (the site has its own tsconfig)
 npm run build        # examples/*.json → examples/out/*.html, dark and light
-npm run bundle       # the renderer as one script → ../hunch/hunch/Resources/model-renderer.js
+npm run bundle       # the renderer as one script → the Hunch app's Resources/model-renderer.js
 npm run dev          # the site at http://127.0.0.1:4620 (needs local Supabase, below)
 npm run smoke        # 20 end-to-end checks against the local site, codes read from Mailpit
 npx tsc -p site      # typecheck the site
@@ -185,14 +191,18 @@ Rules worth knowing before changing any of it:
 ## Supabase, Vercel and email
 
 - **Schema** is `supabase/migrations/`. Add a new migration file for any change; never edit
-  an applied one. Apply locally with `supabase db reset`, to production with
-  `supabase db push` (the repo is linked; the CLI login is enough, no database password).
+  an applied one. Apply locally with `supabase db reset`. **Production is applied by
+  `.github/workflows/migrations.yml`** on any push to `main` that adds a migration (it needs
+  the `SUPABASE_ACCESS_TOKEN` secret and `SUPABASE_PROJECT_REF` variable on GitHub). From
+  Matt's Mac `supabase db push` also works: the CLI login is enough, no database password.
+  Vercel deploys from the same push at the same time, so a migration must be safe for the
+  code already live — add before you depend, and never rename or drop in the same push.
 - **Keys**: the site uses the new publishable and secret keys (legacy JWT keys retire in
   2027). They go in Vercel as `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, set by the
   owner with `vercel env add`, never typed by an agent. Also `SUPABASE_URL`, `IP_SALT`,
   `SITE_URL=https://hunch.tech` (production only; previews use their own origin).
 - **Vercel** project `hunch-models`, Root Directory `site`, connected to GitHub: every push
-  to `main` deploys hunch.tech. `site/package.json` must declare everything `next build`
+  to `main` deploys hunch.tech, so **a push to `main` is a release** — run the checks first. `site/package.json` must declare everything `next build`
   needs (including `typescript`), because Vercel installs from that folder.
 - **Email** goes through Resend SMTP from `no-reply@hunch.tech`. The Magic Link and Confirm
   Signup templates must carry `{{ .Token }}` (a code, not a link); copies are in
@@ -203,9 +213,10 @@ Rules worth knowing before changing any of it:
 
 - Hunch composes a `:type: model` note (`ModelComposer.swift`), keeps private everything a
   stranger should not read, and publishes only when the person presses Publish.
-- Its offline preview runs **this** renderer: `npm run bundle` writes
-  `../hunch/hunch/Resources/model-renderer.js`. Re-bundle after any change to `packages/`,
-  and commit the regenerated file in the Hunch repo. Do not edit it there.
+- Its offline preview runs **this** renderer: `npm run bundle` writes the app's
+  `hunch/Resources/model-renderer.js` (from `hunch/models/`, or from a `../hunch` beside this
+  repo). Re-bundle after any change to `packages/`, and commit the regenerated file in the
+  Hunch repo; `scripts/models.sh check` there fails while it is stale. Do not edit it by hand.
 - Its client (`ModelService.swift`) speaks the API above. A breaking change to a route or
   a reply shape needs the matching change in Hunch, and Hunch builds that shipped stay in the
   wild: prefer additive changes.
