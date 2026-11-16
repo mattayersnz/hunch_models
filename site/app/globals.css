@@ -116,6 +116,16 @@ h3 {
     padding-top: clamp(64px, 5vw, 92px);
 }
 
+/* While the diagram is showing, the copy column keeps the Markdown view's
+   height rather than stretching to the diagram's, so the links stay put.
+   Side by side only: stacked, the column is as tall as its own copy. */
+@media (min-width: 1081px) {
+    .hero[data-demo-view="model"] .heroCopy {
+        align-self: start;
+        min-height: var(--demo-markdown-height, auto);
+    }
+}
+
 .heroDownload {
     display: flex;
     align-items: center;

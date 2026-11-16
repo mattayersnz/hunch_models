@@ -1,7 +1,7 @@
 "use client";
 
 import { modelHtml, readModelMarkdown } from "@hunch/model";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { homeExampleMarkdown } from "../lib/home-example";
 
 type DemoView = "markdown" | "model";
@@ -13,6 +13,38 @@ export function ModelTransformDemo() {
     const result = useMemo(() => readModelMarkdown(markdown), [markdown]);
     const rendered = useMemo(() => result.model === null ? null : modelHtml(result.model), [result.model]);
     const changed = markdown !== homeExampleMarkdown;
+    const exampleRef = useRef<HTMLDivElement>(null);
+
+    // The hero's links sit on this panel's bottom edge, but only the Markdown
+    // view's edge: the diagram is far taller, and following it moved the links
+    // below the fold the moment someone pressed Render. So the hero is told
+    // which view is up and how tall the Markdown view was (the textarea is
+    // resizable, hence the observer), and holds the links there.
+    // Recorded again on the way to the diagram, because the observer reports
+    // after layout and a resize just before the switch may not have reached it.
+    const recordMarkdownHeight = () => {
+        const example = exampleRef.current;
+        const hero = example?.closest<HTMLElement>(".hero");
+        if (!example || !hero) return;
+        hero.style.setProperty("--demo-markdown-height", `${example.offsetHeight}px`);
+    };
+
+    const showModel = () => {
+        if (view === "markdown") recordMarkdownHeight();
+        setView("model");
+    };
+
+    useEffect(() => {
+        const example = exampleRef.current;
+        const hero = example?.closest<HTMLElement>(".hero");
+        if (!example || !hero) return;
+        hero.dataset.demoView = view;
+        if (view !== "markdown") return;
+        recordMarkdownHeight();
+        const observer = new ResizeObserver(recordMarkdownHeight);
+        observer.observe(example);
+        return () => observer.disconnect();
+    }, [view]);
 
     const copyMarkdown = async () => {
         await navigator.clipboard.writeText(markdown);
@@ -30,7 +62,7 @@ export function ModelTransformDemo() {
     };
 
     return (
-        <div className="modelExample">
+        <div className="modelExample" ref={exampleRef}>
             <p className="eyebrow">Markdown → hunch model</p>
             <div className="transformDemo">
                 <div className="demoToolbar">
@@ -48,7 +80,7 @@ export function ModelTransformDemo() {
                             type="button"
                             className="demoViewButton"
                             aria-pressed={view === "model"}
-                            onClick={() => setView("model")}
+                            onClick={showModel}
                         >
                             <span>02</span> Diagram
                         </button>
@@ -82,7 +114,7 @@ export function ModelTransformDemo() {
                             <div className="demoActions">
                                 <button type="button" onClick={copyMarkdown}>{copied ? "Copied" : "Copy"}</button>
                                 {changed ? <button type="button" onClick={resetMarkdown}>Reset</button> : null}
-                                <button className="demoPrimaryAction" type="button" onClick={() => setView("model")}>
+                                <button className="demoPrimaryAction" type="button" onClick={showModel}>
                                     Render model <span aria-hidden="true">→</span>
                                 </button>
                             </div>
