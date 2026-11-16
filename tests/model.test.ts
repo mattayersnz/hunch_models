@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashParts, layoutScene, lineId, modelHtml, pieceForText, readModel, type HunchModel, type ModelDraft } from "../packages/model/src/index.ts";
 import { separate } from "../packages/model/src/render.ts";
-import type { Vec2 } from "../packages/kit/src/iso.ts";
+import type { Vec2 } from "@hunch/kit";
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
 

@@ -8,7 +8,7 @@
 // side as the viewer sees them, so nobody's thoughts rise over somebody else. Props
 // fill the cells behind them first, so the people are never hidden by the furniture.
 
-import { CELL, CRATE, pieceNamed, wordsFor, type PieceDef, type Pose } from "../../kit/src/pieces.ts";
+import { CELL, CRATE, pieceNamed, wordsFor, type PieceDef, type Pose } from "@hunch/kit";
 import { normaliseKey } from "./ids.ts";
 import type { Person, Scene } from "./format.ts";
 

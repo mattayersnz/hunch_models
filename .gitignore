@@ -3,3 +3,8 @@ examples/out/
 .DS_Store
 .vercel/
 .env*
+!.env.example
+.next/
+*.tsbuildinfo
+supabase/.temp/
+supabase/.branches/

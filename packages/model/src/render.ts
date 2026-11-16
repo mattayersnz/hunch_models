@@ -7,10 +7,27 @@
 // to its line by `data-id` — the same id a response points at — so hovering a line
 // lights its marker and the site can hang a response on either.
 
-import { CELL, headTop, personShapes, placeShapes, type PlacedShape } from "../../kit/src/pieces.ts";
-import { box, fitWidth, iso, num, pathOf, unitOf, type Projection, type Vec2, type Vec3 } from "../../kit/src/iso.ts";
-import { escapeXml, lineSvg, solidSvg } from "../../kit/src/svg.ts";
-import { PAGE_CSS, THEME_CSS } from "../../kit/src/theme.ts";
+import {
+    CELL,
+    PAGE_CSS,
+    THEME_CSS,
+    box,
+    escapeXml,
+    fitWidth,
+    headTop,
+    iso,
+    lineSvg,
+    num,
+    pathOf,
+    personShapes,
+    placeShapes,
+    solidSvg,
+    unitOf,
+    type PlacedShape,
+    type Projection,
+    type Vec2,
+    type Vec3,
+} from "@hunch/kit";
 import type { HunchModel, Mark, ModelLine, Scene } from "./format.ts";
 import { GRID, layoutScene, type Cell, type SceneLayout } from "./layout.ts";
 
