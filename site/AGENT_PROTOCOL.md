@@ -33,14 +33,14 @@ Young renters give up before they ever talk to a landlord.
 :with: couch, phone, lamp
 . scrolls listings on her phone
 . saves six, messages none ?
-[They'll want references I don't have] *
+{They'll want references I don't have} *
 
 ## The viewing
 :who: Mia
 . fills in the form at the door
 :who: Agent, property manager
 . hands out application forms !
-[I need someone who will pay on time]
+{I need someone who will pay on time}
 ```
 
 - `# …` is the title. Exactly one is published.
@@ -51,8 +51,9 @@ Young renters give up before they ever talk to a landlord.
 - `:who: Name, about` starts a person. The text after the first comma is optional context.
 - `:with: …` is a comma-separated list of props. Unknown props draw as labelled crates.
 - `. …` is something the current person does. Prose inside a scene is also an action.
-- `[…]` on a line of its own is something the current person thinks. A line that starts
-  with a `[[link]]` is an action, and `[ ]` or `[x]` is a task, which stays private.
+- `{…}` on a line of its own is something the current person thinks. A line that
+  opens with a single `[` is not a thought and stays private. A line that starts with a
+  `[[link]]` is an action, and `[ ]` or `[x]` is a task, which stays private.
 - An action or thought before `:who:` belongs to `Someone`.
 - A trailing ` ?` marks uncertainty, ` *` marks a hunch and ` !` marks focus. Marks may combine.
 - `**bold**`, `__bold__` and inline-code delimiters are removed. `[[Note|shown]]` publishes as `shown`.

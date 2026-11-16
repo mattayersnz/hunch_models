@@ -15,7 +15,7 @@ This second line is private.
 :with: Couch, phone, couch
 . scrolls listings on her phone
 . saves six, messages none ?
-[They'll want references I don't have] *
+{They'll want references I don't have} *
 `;
 
 test("canonical Markdown compiles through the model reader", () => {
@@ -55,7 +55,7 @@ test("code, comments, unknown properties and unsupported lists never leave", () 
 });
 
 test("only plain prose before the first scene becomes the premise", () => {
-    for (const line of ["[ ] email Sam about the rent", "[a private thought]", ". a stray bullet", "- pasted"]) {
+    for (const line of ["[ ] email Sam about the rent", "{a private thought}", "[a square-bracketed line]", ". a stray bullet", "- pasted"]) {
         const { model, problems } = readModelMarkdown(`# T\n:type: model\n${line}\nThe premise.\n\n## Home\n. waits`);
         assert.ok(model);
         assert.equal(model.premise, "The premise.", line);
@@ -64,13 +64,23 @@ test("only plain prose before the first scene becomes the premise", () => {
 });
 
 test("tasks stay private and a wikilink-led sentence is an action, not a thought", () => {
-    const { model, problems } = readModelMarkdown(`# T\n:type: model\n\n## Home\n[ ] call [Bob]\n[x]\n[X] done [yes]\n[[Mia]] rings [[People/Bob|Bob]]\n[thinks] ?`);
+    const { model, problems } = readModelMarkdown(`# T\n:type: model\n\n## Home\n[ ] call [Bob]\n[x]\n[X] done [yes]\n[[Mia]] rings [[People/Bob|Bob]]\n{thinks} ?`);
     assert.ok(model);
     const person = model.scenes[0].people[0];
     assert.deepEqual(person.does.map((line) => line.text), ["Mia rings Bob"]);
     assert.deepEqual(person.thinks.map((line) => line.text), ["thinks"]);
     assert.deepEqual(person.thinks[0].marks, ["unsure"]);
     assert.equal(problems.filter((problem) => problem.includes("unsupported list line")).length, 3);
+});
+
+test("a thought is written in curly brackets; square brackets stay private", () => {
+    const { model, problems } = readModelMarkdown(`# T\n:type: model\n\n## Home\n{curly}\n{marked} * ?\n[square]\n[Bob] rings *\n{open and never closed\n. waits`);
+    assert.ok(model);
+    const person = model.scenes[0].people[0];
+    assert.deepEqual(person.thinks.map((line) => [line.text, line.marks]), [["curly", []], ["marked", ["unsure", "hunch"]]]);
+    assert.deepEqual(person.does.map((line) => line.text), ["{open and never closed", "waits"]);
+    assert.equal(problems.filter((problem) => problem.includes("[square brackets] stays private")).length, 2);
+    assert.ok(!JSON.stringify(model).includes("square"));
 });
 
 test("a family, a flag or a skin tone opens a scene; a keycap does not", () => {

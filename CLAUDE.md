@@ -311,9 +311,12 @@ cleaning still have one home. Each of these was a published private line before 
 rule, and `tests/markdown.test.ts` holds a case for each:
 
 - Before the first scene only the first line of plain prose is published, as the premise.
-  A task, a `[thought]` or a bullet there stays private.
+  A task, a `{thought}` or a bullet there stays private.
 - Tasks and pasted lists are tested before anything that could publish them. `[ ] call [Bob]`
   starts with `[` and ends with `]` and was once a thought.
+- A thought is `{…}` on a line of its own. It was `[…]` until 16 November 2026; any line
+  opening with a single `[` now stays private with a problem, in a scene or out of one,
+  rather than becoming an action.
 - A line led by a `[[link]]` is an action, not a thought.
 - A scene's emoji is the line's first whole character by Hunch's rule (`isSectionEmoji`):
   a family, a flag or a skin tone opens a scene, a digit keycap does not, and a bullet is

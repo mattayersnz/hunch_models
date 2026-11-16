@@ -27,7 +27,7 @@ const heading = /^(#{1,6})\s+(.+)$/;
 const task = /^\[[ x]\](?:\s|$)/i;
 const otherList = /^(?:[-+*]\s|\d+\.\s)/;
 const bullet = /^\.{1,3}\s+(.*)$/;
-const markedThought = /^\[.*\]\s+[?*!]+(?:\s+[?*!]+)*$/;
+const markedThought = /^\{.*\}\s+[?*!]+(?:\s+[?*!]+)*$/;
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 /**
@@ -46,10 +46,20 @@ function emojiSection(text: string): { emoji: string; name: string } | null {
     return { emoji: first, name: rest.trim() };
 }
 
-/** A whole-line `[thought]`, optionally followed by marks. `[[links]]` and tasks are not. */
+/** A whole-line `{thought}`, optionally followed by marks. */
 function isThought(text: string): boolean {
-    if (!text.startsWith("[") || text.startsWith("[[") || task.test(text)) return false;
-    return text.endsWith("]") || markedThought.test(text);
+    return text.startsWith("{") && (text.endsWith("}") || markedThought.test(text));
+}
+
+/**
+ * A line opening with `[`, which was a thought until November 2026. It is never published
+ * now: in Hunch's daily notes that shape is another voice entirely, so a model says a
+ * thought with `{…}` and a square-bracketed line stays home rather than turning into
+ * something the person does. Any line led by one `[` counts, closed or not, because that
+ * is what Hunch's own parser calls the line. `[[links]]` and tasks are not this.
+ */
+function isSquareBracketed(text: string): boolean {
+    return text.startsWith("[") && !text.startsWith("[[") && !task.test(text);
 }
 
 function plain(text: string): string {
@@ -205,9 +215,14 @@ export function readModelMarkdown(input: unknown): MarkdownReadResult {
             return;
         }
 
+        if (isSquareBracketed(text)) {
+            problems.push(`line ${at}: a line in [square brackets] stays private; write a thought as {…}`);
+            return;
+        }
+
         if (scene) {
             if (isThought(text)) {
-                const closing = text.lastIndexOf("]");
+                const closing = text.lastIndexOf("}");
                 currentPerson().thinks.push(marked(`${text.slice(1, closing)}${text.slice(closing + 1)}`));
                 return;
             }
