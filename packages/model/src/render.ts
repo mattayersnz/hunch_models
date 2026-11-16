@@ -14,6 +14,7 @@ import {
     box,
     escapeXml,
     fitWidth,
+    headPoint,
     headTop,
     iso,
     lineSvg,
@@ -187,10 +188,12 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
 
     const perPiece = new Map<number, number>();
     layout.people.forEach((placed) => {
-        const [cx, cy] = centreOf(placed.cell);
-        const headY = placed.pose.kind === "sit" ? placed.cell[1] * CELL + placed.pose.seat.y + 1.5 : cy;
-        const head = iso([cx, headY, headTop(placed.pose)], projection);
-        labels.push(`<text class="hm-label" x="${num(head[0] + 4.6 * u)}" y="${num(head[1] + 3 * u)}">${escapeXml(placed.person.name)}</text>`);
+        const [hx, hy, hz] = headPoint(placed.pose);
+        const head = iso([placed.cell[0] * CELL + hx, placed.cell[1] * CELL + hy, hz], projection);
+        // Names sit outside the group even though each figure turns inward.
+        const across = placed.cell[0] - placed.cell[1];
+        const labelSide = across === 0 ? (placed.cell[0] >= GRID / 2 ? 1 : -1) : Math.sign(across);
+        labels.push(`<text class="hm-label" x="${num(head[0] + labelSide * 4.8 * u)}" y="${num(head[1] + 3 * u)}"${labelSide < 0 ? ' text-anchor="end"' : ""}>${escapeXml(placed.person.name)}</text>`);
 
         let loose = 0;
         placed.person.does.forEach((line: ModelLine) => {
@@ -218,7 +221,7 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
             const inRow = Math.min(THOUGHTS_PER_ROW, placed.person.thinks.length - row * THOUGHTS_PER_ROW);
             const column = index % THOUGHTS_PER_ROW;
             const spacing = radius * 2 + 6;
-            const at: Vec2 = [head[0] + (column - (inRow - 1) / 2) * spacing + radius * 0.6, head[1] - 9 * u - radius - row * (radius * 2 + 8)];
+            const at: Vec2 = [head[0] + (column - (inRow - 1) / 2) * spacing + labelSide * radius * 0.6, head[1] - 9 * u - radius - row * (radius * 2 + 8)];
             specs.push({ kind: "thinks", line, label: layout.labels.get(line.id) ?? "", at, from: [head[0], head[1] - 1.5 * u], fixed: false });
         });
     });

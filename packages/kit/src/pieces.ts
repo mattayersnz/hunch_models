@@ -9,13 +9,14 @@
 // the kit does not know still draws, as a plain labelled crate, so an author is never
 // stopped by the kit and the page never needs anything but this file to render.
 
-import { box, cylinder, type Plan, type Projection, type SolidPaths } from "./iso.ts";
+import { box, cylinder, depthOf, extrude, roundedPlan, type Plan, type Projection, type SolidPaths, type Vec2, type Vec3 } from "./iso.ts";
 import type { SolidStyle } from "./svg.ts";
 
 export const CELL = 30;
 
 export type Shape =
     | { kind: "box"; plan: Plan; z: number; h: number; style?: SolidStyle }
+    | { kind: "poly"; ring: Vec2[]; z: number; h: number; style?: SolidStyle }
     | { kind: "cyl"; cx: number; cy: number; r: number; z: number; h: number; style?: SolidStyle };
 
 export interface PieceDef {
@@ -220,38 +221,90 @@ export const wordsFor = (name: string): string[] => {
 
 // MARK: - People
 
-export type Pose = { kind: "stand" } | { kind: "sit"; seat: NonNullable<PieceDef["seat"]> };
+export type Facing = "north" | "northEast" | "east" | "southEast" | "south" | "southWest" | "west" | "northWest";
+export type Pose = { kind: "stand"; facing: Facing } | { kind: "sit"; seat: NonNullable<PieceDef["seat"]>; facing: Facing };
+
+const FACING_ANGLE: Record<Facing, number> = {
+    north: Math.PI,
+    northEast: (-3 * Math.PI) / 4,
+    east: -Math.PI / 2,
+    southEast: -Math.PI / 4,
+    south: 0,
+    southWest: Math.PI / 4,
+    west: Math.PI / 2,
+    northWest: (3 * Math.PI) / 4,
+};
+
+function rotateShapes(shapes: Shape[], facing: Facing): Shape[] {
+    const angle = FACING_ANGLE[facing];
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const point = ([x, y]: Vec2): Vec2 => {
+        const dx = x - 15;
+        const dy = y - 15;
+        return [15 + dx * cos - dy * sin, 15 + dx * sin + dy * cos];
+    };
+    const rotated = angle === 0 ? shapes : shapes.map((shape): Shape => {
+        if (shape.kind === "box") return { kind: "poly", ring: roundedPlan(shape.plan).map(point), z: shape.z, h: shape.h, style: shape.style };
+        if (shape.kind === "poly") return { ...shape, ring: shape.ring.map(point) };
+        const [cx, cy] = point([shape.cx, shape.cy]);
+        return { ...shape, cx, cy };
+    });
+    return sortShapes(rotated);
+}
+
+function shapeAnchor(shape: Shape): Vec3 {
+    if (shape.kind === "box") return [shape.plan.x + shape.plan.w / 2, shape.plan.y + shape.plan.d / 2, shape.z + shape.h / 2];
+    if (shape.kind === "poly") {
+        const x = shape.ring.reduce((sum, [value]) => sum + value, 0) / shape.ring.length;
+        const y = shape.ring.reduce((sum, [, value]) => sum + value, 0) / shape.ring.length;
+        return [x, y, shape.z + shape.h / 2];
+    }
+    return [shape.cx, shape.cy, shape.z + shape.h / 2];
+}
+
+/** Rear blocks first, so the torso naturally hides the far arm and leg. */
+const sortShapes = (shapes: Shape[]): Shape[] => [...shapes].sort((a, b) => depthOf(shapeAnchor(a)) - depthOf(shapeAnchor(b)));
 
 /** Head height above the floor, where thoughts rise from. */
-export const headTop = (pose: Pose): number => (pose.kind === "sit" ? pose.seat.z + 2.4 + 10 + 5.2 : 26.2);
+export const headTop = (pose: Pose): number => (pose.kind === "sit" ? pose.seat.z + 17.9 : 26);
 
-/** A person in a cell, facing the viewer's left, made of the same solids as the furniture. */
+/** Local centre of the head: labels and thought trails meet the figure rather than its cell. */
+export function headPoint(pose: Pose): [x: number, y: number, z: number] {
+    return pose.kind === "sit" ? [15, pose.seat.y + 1.4, pose.seat.z + 14.7] : [15, 15, 22.8];
+}
+
+/** A compact minifigure: six overlapping rounded blocks rather than assembled anatomy. */
 export function personShapes(pose: Pose): Shape[] {
     const cx = 15;
     if (pose.kind === "stand") {
-        const cy = 15;
-        return [
-            b(cx - 2.8, cy - 1.2, 2.3, 2.6, 0, 11, 0.6),
-            b(cx + 0.5, cy - 1.2, 2.3, 2.6, 0, 11, 0.6),
-            b(cx - 4.6, cy - 1, 1.3, 2.2, 12, 8, 0.6, LIT),
-            b(cx - 3.3, cy - 2, 6.6, 4.2, 11, 10, 1.6, LIT),
-            b(cx + 3.3, cy - 1, 1.3, 2.2, 12, 8, 0.6, LIT),
-            c(cx, cy, 2.6, 21, 5.2, LIT),
+        const shapes: Shape[] = [
+            b(cx - 3.1, 13, 2.8, 4, 0, 11, 1),
+            b(cx + 0.3, 13, 2.8, 4, 0, 11, 1),
+            b(cx - 4.3, 12.5, 8.6, 5, 10.5, 9.5, 1.6, LIT),
+            b(cx - 6.5, 13, 2.2, 4, 11.5, 7.5, 1, LIT),
+            b(cx + 4.3, 13, 2.2, 4, 11.5, 7.5, 1, LIT),
+            b(cx - 3.2, 12, 6.4, 6, 19.6, 6.4, 1.4, LIT),
         ];
+        return rotateShapes(shapes, pose.facing);
     }
     const { y, z, front } = pose.seat;
-    // Thighs run from the hips to just past the seat's front edge, where the shins drop.
     const shin = Math.max(front - y + 0.4, 4);
-    return [
-        b(cx - 2.8, y, 2.3, shin, z, 2.4, 0.6),
-        b(cx + 0.5, y, 2.3, shin, z, 2.4, 0.6),
-        b(cx - 2.8, y + shin - 0.4, 2.3, 2.4, 0, z + 1, 0.6),
-        b(cx + 0.5, y + shin - 0.4, 2.3, 2.4, 0, z + 1, 0.6),
-        b(cx - 4.6, y + 0.4, 1.3, 2.2, z + 3.4, 8, 0.6, LIT),
-        b(cx - 3.3, y - 0.6, 6.6, 4.2, z + 2.4, 10, 1.6, LIT),
-        b(cx + 3.3, y + 0.4, 1.3, 2.2, z + 3.4, 8, 0.6, LIT),
-        c(cx, y + 1.5, 2.6, z + 12.4, 5.2, LIT),
+    const legs: Shape[] = [
+        b(cx - 3.1, y, 2.8, shin, z, 2.6, 1),
+        b(cx + 0.3, y, 2.8, shin, z, 2.6, 1),
+        b(cx - 3.1, y + shin - 0.4, 2.8, 3, 0, z + 1, 1),
+        b(cx + 0.3, y + shin - 0.4, 2.8, 3, 0, z + 1, 1),
     ];
+    const torso = b(cx - 4.3, y - 0.6, 8.6, 5, z + 2.2, 9.5, 1.6, LIT);
+    const [rearArm, frontArm] = sortShapes([
+        b(cx - 6.5, y, 2.2, 4, z + 3.2, 7.5, 1, LIT),
+        b(cx + 4.3, y, 2.2, 4, z + 3.2, 7.5, 1, LIT),
+    ]);
+    const head = b(cx - 3.2, y - 1.1, 6.4, 6, z + 11.5, 6.4, 1.4, LIT);
+    // Legs occupy the same projected space as the lap. Paint them first so their
+    // internal edges stop at the torso instead of reading through the seated body.
+    return [...sortShapes(legs), rearArm, torso, frontArm, head];
 }
 
 // MARK: - Drawing
@@ -269,7 +322,9 @@ export function placeShapes(shapes: Shape[], col: number, row: number, projectio
         paths:
             shape.kind === "box"
                 ? box({ ...shape.plan, x: shape.plan.x + ox, y: shape.plan.y + oy }, shape.z, shape.h, projection)
-                : cylinder(shape.cx + ox, shape.cy + oy, shape.r, shape.z, shape.h, projection),
+                : shape.kind === "poly"
+                  ? extrude(shape.ring.map(([x, y]) => [x + ox, y + oy]), shape.z, shape.h, projection)
+                  : cylinder(shape.cx + ox, shape.cy + oy, shape.r, shape.z, shape.h, projection),
         style: shape.style ?? {},
     }));
 }

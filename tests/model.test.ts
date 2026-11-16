@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashParts, layoutScene, lineId, modelHtml, pieceForText, readModel, type HunchModel, type ModelDraft } from "../packages/model/src/index.ts";
 import { separate } from "../packages/model/src/render.ts";
-import type { Vec2 } from "@hunch/kit";
+import { personShapes, type Facing, type Vec2 } from "@hunch/kit";
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
 
@@ -143,6 +143,49 @@ test("layout is the same every time", () => {
     const model = read(base);
     const once = JSON.stringify([...layoutScene(model.scenes[0]).labels]);
     assert.equal(JSON.stringify([...layoutScene(model.scenes[0]).labels]), once);
+});
+
+test("larger groups stay gathered around the centre and turn toward one another", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", people: ["A", "B", "C", "D"].map((name) => ({ name })) }] });
+    const people = layoutScene(model.scenes[0]).people;
+    assert.deepEqual(people.map(({ cell }) => cell), [[1, 2], [2, 1], [2, 2], [1, 1]]);
+    assert.deepEqual(people.map(({ pose }) => pose.facing), ["northEast", "southWest", "northWest", "southEast"]);
+});
+
+test("a sitter faces the same way as the seat", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", pieces: ["chair"], people: [{ name: "A" }] }] });
+    assert.equal(layoutScene(model.scenes[0]).people[0].pose.facing, "south");
+});
+
+test("a seated worker has the desk directly in front of them", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", pieces: ["desk", "chair"], people: [{ name: "A" }] }] });
+    const layout = layoutScene(model.scenes[0]);
+    const person = layout.people[0];
+    const desk = layout.pieces.find((piece) => piece.def.name === "desk");
+    assert.ok(desk);
+    assert.deepEqual(desk.cell, [person.cell[0], person.cell[1] + 0.6]);
+});
+
+test("the block figure supports all eight rotations", () => {
+    const facings: Facing[] = ["north", "northEast", "east", "southEast", "south", "southWest", "west", "northWest"];
+    const shapes = facings.map((facing) => JSON.stringify(personShapes({ kind: "stand", facing })));
+    assert.equal(new Set(shapes).size, facings.length);
+});
+
+test("the torso hides the rear arm", () => {
+    const shapes = personShapes({ kind: "stand", facing: "south" });
+    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.h === 9.5);
+    const arms = shapes.flatMap((shape, at) => (shape.kind === "box" && shape.h === 7.5 ? [at] : []));
+    assert.equal(arms.length, 2);
+    assert.ok(arms[0] < torso && torso < arms[1]);
+});
+
+test("seated legs stop behind the torso", () => {
+    const shapes = personShapes({ kind: "sit", seat: { y: 11, z: 7, front: 22 }, facing: "south" });
+    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.plan.w === 8.6);
+    const legs = shapes.flatMap((shape, at) => (shape.kind === "box" && shape.plan.w === 2.8 ? [at] : []));
+    assert.equal(legs.length, 4);
+    assert.ok(legs.every((leg) => leg < torso));
 });
 
 test("separated marks never touch", () => {

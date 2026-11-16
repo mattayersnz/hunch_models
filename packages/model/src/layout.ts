@@ -4,11 +4,11 @@
 // lays out the same way, on any machine, with no model and no randomness — which is
 // what lets Hunch's preview, the hosted page and a coding agent's build all agree.
 //
-// A scene is a 4 × 4 floor of cells. People stand along the middle diagonal, side by
-// side as the viewer sees them, so nobody's thoughts rise over somebody else. Props
-// fill the cells behind them first, so the people are never hidden by the furniture.
+// A scene is a 4 × 4 floor of cells. The first two people frame its centre, and larger
+// groups fill the near and far centre cells instead of marching out to the corners.
+// Props fill the cells behind them first, so people are never hidden by furniture.
 
-import { CELL, CRATE, pieceNamed, wordsFor, type PieceDef, type Pose } from "@hunch/kit";
+import { CELL, CRATE, pieceNamed, wordsFor, type Facing, type PieceDef, type Pose } from "@hunch/kit";
 import { normaliseKey } from "./ids.ts";
 import type { Person, Scene } from "./format.ts";
 
@@ -17,8 +17,23 @@ export const FLOOR = GRID * CELL;
 
 export type Cell = [col: number, row: number];
 
-/** Same depth band (col + row = 3), spread across the screen: left, right, far left, far right. */
-const PEOPLE_CELLS: Cell[] = [[1, 2], [2, 1], [0, 3], [3, 0]];
+/** A compact group around the centre, in the order a scene introduces its people. */
+const PEOPLE_CELLS: Cell[] = [[1, 2], [2, 1], [2, 2], [1, 1]];
+
+/** One of eight natural turns toward a point in the scene. */
+function facingToward([col, row]: Cell, [targetCol, targetRow]: [number, number]): Facing {
+    const dx = Math.sign(targetCol - col);
+    const dy = Math.sign(targetRow - row);
+    if (dx === 0 && dy < 0) return "north";
+    if (dx > 0 && dy < 0) return "northEast";
+    if (dx > 0 && dy === 0) return "east";
+    if (dx > 0 && dy > 0) return "southEast";
+    if (dx === 0 && dy > 0) return "south";
+    if (dx < 0 && dy > 0) return "southWest";
+    if (dx < 0 && dy === 0) return "west";
+    if (dx < 0 && dy < 0) return "northWest";
+    return "south";
+}
 
 export interface PlacedPiece {
     name: string;
@@ -71,24 +86,47 @@ export function layoutScene(scene: Scene): SceneLayout {
 
     // People take seats in order while there are seats; the seat moves to them.
     const seats = pieces.map((piece, index) => (piece.def.seat ? index : -1)).filter((index) => index >= 0);
+    const centre: [number, number] = [
+        peopleCells.reduce((sum, [col]) => sum + col, 0) / Math.max(1, peopleCells.length),
+        peopleCells.reduce((sum, [, row]) => sum + row, 0) / Math.max(1, peopleCells.length),
+    ];
     const people: PlacedPerson[] = scene.people.map((person, index) => {
         const seat = seats[index] ?? null;
         const cell = peopleCells[index];
-        if (seat === null) return { person, cell, pose: { kind: "stand" }, seat: null };
+        // Seats in the kit open toward +y. A sitter follows the furniture; standing
+        // figures turn as a whole toward the other people in their scene.
+        const facing: Facing = seat === null ? facingToward(cell, centre) : "south";
+        if (seat === null) return { person, cell, pose: { kind: "stand", facing }, seat: null };
         const piece = pieces[seat];
         piece.cell = cell;
         piece.seatedBy = index;
-        return { person, cell, pose: { kind: "sit", seat: piece.def.seat! }, seat };
+        return { person, cell, pose: { kind: "sit", seat: piece.def.seat!, facing }, seat };
     });
+
+    // A desk belongs in front of a sitter, not in an arbitrary empty corner. Pair
+    // each available desk with a seated person when the cell they face is open.
+    const paired = new Set<number>();
+    const reservedCells = new Set<string>();
+    for (const person of people.filter((placed) => placed.seat !== null)) {
+        const desk = pieces.findIndex((piece, index) => piece.def.name === "desk" && piece.seatedBy === null && !paired.has(index));
+        if (desk < 0) break;
+        const cell: Cell = [person.cell[0], person.cell[1] + 1];
+        if (cell[1] >= GRID || peopleCells.some((taken) => sameCell(taken, cell))) continue;
+        // Keep the logical cell reserved but pull the desk back within it: a whole
+        // cell of air would make the sitter look beside the desk rather than at it.
+        pieces[desk].cell = [person.cell[0], person.cell[1] + 0.6];
+        paired.add(desk);
+        reservedCells.add(cell.join());
+    }
 
     // Everything else, back cells first; within a band, nearest the middle of the screen first.
     const free: Cell[] = [];
     for (let col = 0; col < GRID; col++) for (let row = 0; row < GRID; row++) free.push([col, row]);
     const open = free
-        .filter((cell) => !peopleCells.some((taken) => sameCell(taken, cell)))
+        .filter((cell) => !peopleCells.some((taken) => sameCell(taken, cell)) && !reservedCells.has(cell.join()))
         .sort((a, b) => a[0] + a[1] - (b[0] + b[1]) || Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]) || a[0] - b[0]);
     let next = 0;
-    for (const piece of pieces) if (piece.seatedBy === null) piece.cell = open[next++];
+    for (const [index, piece] of pieces.entries()) if (piece.seatedBy === null && !paired.has(index)) piece.cell = open[next++];
 
     const actionAt = new Map<string, number | null>();
     const labels = new Map<string, string>();

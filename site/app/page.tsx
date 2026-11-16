@@ -8,13 +8,13 @@ const exampleModel = readModel({
     scenes: [{
         name: "First hour",
         emoji: "☕",
-        pieces: ["desk", "chair", "laptop", "cup"],
+        pieces: ["desk", "chair"],
         people: [{
             name: "Alex",
             about: "works from home",
             does: [
-                "makes coffee before opening the laptop",
-                "writes down one priority at the desk",
+                "sits down at the desk before checking messages",
+                "writes down one priority at the desk before everyone else weighs in",
             ],
             thinks: [
                 { text: "If I check messages now, I will lose the morning", marks: ["hunch"] },
@@ -117,6 +117,7 @@ export default function Home() {
                     <h2 id="closing-title">Bring your next hunch into the world.</h2>
                     <p>Use Hunch to turn an idea from your notes into a model people can respond to.</p>
                 </div>
+                <AppStoreLink className="closingStoreLink" />
             </section>
 
             <footer>
