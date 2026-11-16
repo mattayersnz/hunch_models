@@ -33,17 +33,17 @@ const steps = [
     {
         number: "01",
         title: "Reveal the assumptions",
-        body: "Scenes make the assumptions behind an idea visible.",
+        body: "Showing who is involved, what they do, and what they think makes the assumptions behind an idea visible.",
     },
     {
         number: "02",
         title: "Get specific feedback",
-        body: "People respond to the parts that resonate or differ.",
+        body: "People can respond to the individual parts that resonate or differ, rather than judging the whole idea at once.",
     },
     {
         number: "03",
         title: "Learn what to change",
-        body: "Responses stay with each part, showing what holds and what is missing.",
+        body: "Each response stays connected to the part it concerns, so you can see what holds, what needs work, and what is missing.",
     },
 ];
 
@@ -64,9 +64,10 @@ export default function Home() {
                     <p className="eyebrow">Hunch models</p>
                     <h1 id="hero-title">Show how an idea might play out in real life.</h1>
                     <p className="heroIntro">
-                        A hunch model turns an idea into scenes with people, places, actions,
-                        and thoughts. Share it to learn what matches other people’s
-                        experience—and what does not.
+                        A hunch model turns an idea into a few small scenes with people,
+                        places, actions, and thoughts. It makes the idea easier to see and
+                        share, so others can say what matches their experience, what
+                        differs, and what you may have missed.
                     </p>
                     <div className="heroActions">
                         <div className="heroDownload">
@@ -93,8 +94,9 @@ export default function Home() {
                 <div>
                     <h2 id="why-title">A small model for a useful conversation.</h2>
                     <p>
-                        Each scene combines simple visual pieces with plain language. It is
-                        a humble starting point, built around one question:
+                        Each scene combines simple visual pieces with plain language to show
+                        a situation and the people in it. The model is a humble starting
+                        point, not a finished answer. It asks one question:
                         <em> is this how it is for you?</em>
                     </p>
                 </div>
@@ -121,8 +123,8 @@ export default function Home() {
                     <p className="eyebrow">Create one</p>
                     <h2 id="closing-title">Make your hunch concrete.</h2>
                     <p>
-                        Create a model in Hunch, or ask any MCP-capable agent to publish one
-                        from Markdown.
+                        Create a model in Hunch, or ask any agent that supports MCP to create
+                        and publish one from Markdown.
                     </p>
                 </div>
             </section>
