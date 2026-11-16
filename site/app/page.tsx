@@ -117,7 +117,6 @@ export default function Home() {
                     <h2 id="closing-title">Bring your next hunch into the world.</h2>
                     <p>Use Hunch to turn an idea from your notes into a model people can respond to.</p>
                 </div>
-                <AppStoreLink className="closingStoreLink" />
             </section>
 
             <footer>
