@@ -18,7 +18,7 @@ tests/            ids, reading, layout, rendering.
 scripts/smoke.ts  the site end to end, against local Supabase.
 ```
 
-There are no runtime dependencies. Node 22.18+ runs the TypeScript directly.
+The renderer packages have no runtime dependencies. Node 22.18+ runs their TypeScript directly.
 
 ```bash
 npm install        # TypeScript and Node types, for checking only
@@ -82,6 +82,10 @@ check ownership themselves.
 
 | Route | Who | What |
 |---|---|---|
+| `POST /mcp` | connected agent | validate, publish, update and read models through remote MCP |
+| `GET /agents` | anyone | human-readable agent and Markdown protocol |
+| `GET /agents/protocol.md` | agent | the same protocol as raw Markdown |
+| `GET /dashboard` | web owner | models, OAuth grants and account controls after magic-link sign-in |
 | `POST /api/auth/code` `{email}` | Hunch | emails a six-digit code |
 | `POST /api/auth/verify` `{email, code}` | Hunch | returns a session |
 | `POST /api/auth/refresh` `{refresh_token}` | Hunch | renews it |
@@ -117,11 +121,15 @@ This project uses ports 553xx so it can run beside another local Supabase projec
 1. Link and push the schema to your hosted project:
    `supabase link --project-ref <your-project-ref>` then `supabase db push`.
 2. In the Supabase dashboard, under Authentication → Emails, set the Magic Link and
-   Confirm Signup templates to the ones in `supabase/templates/` (they send
-   `{{ .Token }}`, a code, not a link), and add custom SMTP: the built-in sender only
+   Confirm Signup templates to the ones in `supabase/templates/` (they send both
+   `{{ .Token }}` for the app and a `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}` link for the web dashboard, as in `supabase/templates/`), and add custom SMTP: the built-in sender only
    delivers to the project's team and a few emails an hour.
 3. On Vercel, import the repo with Root Directory `site`, and set `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `IP_SALT` and `SITE_URL`.
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `IP_SALT`, `SITE_URL` and
+   `MCP_RESOURCE_URL=https://hunch.tech/mcp`.
+4. In Supabase Authentication, enable the OAuth 2.1 server and dynamic client
+   registration, set the authorization path to `https://hunch.tech/oauth/consent`, and
+   enable `public.hunch_access_token_hook` as the custom access-token hook.
 
 ## Licence
 

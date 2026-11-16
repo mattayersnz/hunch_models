@@ -70,6 +70,8 @@ export default function Home() {
                     </p>
                     <div className="heroActions">
                         <AppStoreLink />
+                        <a className="agentLink" href="/agents">Connect an agent</a>
+                        <a className="agentLink" href="/dashboard">Your models</a>
                         <p>Hunch is available for iPhone and Mac.</p>
                     </div>
                 </div>

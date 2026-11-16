@@ -201,14 +201,28 @@ Rules worth knowing before changing any of it:
 - **Keys**: the site uses the new publishable and secret keys (legacy JWT keys retire in
   2027). They go in Vercel as `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, set by the
   owner with `vercel env add`, never typed by an agent. Also `SUPABASE_URL`, `IP_SALT`,
-  `SITE_URL=https://hunch.tech` (production only; previews use their own origin).
+  `SITE_URL=https://hunch.tech` (production only; previews use their own origin), and
+  `MCP_RESOURCE_URL=https://hunch.tech/mcp` (all hosted environments).
 - **Vercel** project `hunch-models`, Root Directory `site`, connected to GitHub: every push
   to `main` deploys hunch.tech, so **a push to `main` is a release** — run the checks first. `site/package.json` must declare everything `next build`
   needs (including `typescript`), because Vercel installs from that folder.
 - **Email** goes through Resend SMTP from `no-reply@hunch.tech`. The Magic Link and Confirm
-  Signup templates must carry `{{ .Token }}` (a code, not a link); copies are in
-  `supabase/templates/`. hunch.tech's DNS also carries Google Workspace mail records — leave
+  Signup templates carry `{{ .Token }}` for Hunch and a link to
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}` for the web dashboard, never
+  `{{ .ConfirmationURL }}`: that link spends the token on GET, so a mail scanner following it
+  uses up the code before it is typed into Hunch. `/auth/confirm` only shows a button, and
+  the button's POST verifies. Copies are in `supabase/templates/`; the hosted templates are
+  pasted in by the owner and must match. hunch.tech's DNS also carries Google Workspace mail records — leave
   them alone when changing anything there.
+- **Agent access** is remote Streamable HTTP MCP at `/mcp`, protected by Supabase's OAuth
+  2.1 server and dynamic client registration. The hosted Auth settings must enable the OAuth
+  server, use `https://hunch.tech/oauth/consent`, allow dynamic registration and enable the
+  `public.hunch_access_token_hook` custom access-token hook. `site/AGENT_PROTOCOL.md` is the
+  one source used by `/agents`, `/agents/protocol.md` and the MCP resources. OAuth tokens are
+  MCP-only: `site/lib/http.ts` refuses them on Hunch's private REST API, and
+  `browserUser` refuses them as a dashboard session, since a token can be put in a cookie.
+  Every MCP call also asks Supabase whether the token still stands, so Disconnect is
+  immediate. Form posts that read the session check `sameOrigin`.
 
 ## Hunch, the other half
 
@@ -237,7 +251,5 @@ Rules worth knowing before changing any of it:
 
 ## Not done yet
 
-- Agents cannot draft a model note from a person's notes, and there is no coding-agent skill
-  or MCP server over the API yet (phase 4 of the plan).
 - In Hunch, a response does not yet scroll the editor to its line.
 - The home page at hunch.tech is a placeholder.

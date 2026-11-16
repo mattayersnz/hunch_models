@@ -1,0 +1,8 @@
+# Hunch models
+
+Agent protocol and Markdown format: https://hunch.tech/agents/protocol.md
+Remote MCP connection: https://hunch.tech/mcp
+Human documentation: https://hunch.tech/agents
+
+Hunch models turn structured Markdown into hosted isometric scenes. Connect through MCP;
+the REST API is private to the Hunch app and hunch.tech website.

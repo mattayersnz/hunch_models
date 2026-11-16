@@ -136,6 +136,320 @@ h3 {
     height: 40px;
 }
 
+.agentLink {
+    color: var(--text);
+    font-size: 14px;
+    text-decoration-color: var(--quiet);
+    text-underline-offset: 5px;
+}
+
+.agentLink:hover {
+    color: var(--accent);
+}
+
+.docsShell {
+    width: min(920px, calc(100% - clamp(32px, 8vw, 112px)));
+    padding: 36px 0 112px;
+}
+
+.docsNav {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 76px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.docsNav a,
+.protocol a {
+    color: var(--text);
+    text-underline-offset: 4px;
+}
+
+.protocol > h1 {
+    max-width: 14ch;
+}
+
+.protocol h2 {
+    margin-top: 82px;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+}
+
+.protocol h3 {
+    margin-top: 42px;
+}
+
+.protocol p,
+.protocol li {
+    max-width: 760px;
+}
+
+.protocol li + li {
+    margin-top: 7px;
+}
+
+.protocol pre {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 30px 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: #d7d6d1;
+    font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.protocol code:not(pre code) {
+    padding: 2px 5px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: .88em ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.protocol blockquote {
+    margin: 28px 0;
+    padding-left: 20px;
+    border-left: 2px solid var(--accent);
+}
+
+.accountShell {
+    width: min(1000px, calc(100% - clamp(32px, 8vw, 112px)));
+    margin: 0 auto;
+    padding: 36px 0 120px;
+}
+
+.accountNarrow {
+    width: min(680px, calc(100% - 32px));
+}
+
+.accountNav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    min-height: 44px;
+    margin-bottom: 76px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+}
+
+.accountNav span {
+    margin-left: auto;
+    color: var(--quiet);
+}
+
+.accountNav a,
+.accountShell a {
+    color: var(--text);
+    text-underline-offset: 4px;
+}
+
+.accountShell > h1 {
+    max-width: 13ch;
+}
+
+.accountIntro {
+    max-width: 680px;
+    margin-bottom: 44px;
+    color: #c1c0bb;
+    font-size: 1.15rem;
+}
+
+.stackForm,
+.inlineForm {
+    display: flex;
+    align-items: end;
+    gap: 14px;
+}
+
+.stackForm {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 480px;
+}
+
+label {
+    display: grid;
+    gap: 8px;
+    color: var(--text);
+    font-size: 13px;
+}
+
+input,
+select,
+button {
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+}
+
+input,
+select {
+    min-width: 250px;
+    padding: 9px 12px;
+}
+
+button {
+    padding: 9px 16px;
+    background: var(--accent);
+    color: #101208;
+    cursor: pointer;
+    font-weight: 650;
+}
+
+button:hover {
+    filter: brightness(1.08);
+}
+
+.linkButton {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-weight: 400;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.secondaryButton {
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.dangerButton {
+    background: #d95d51;
+    color: #160604;
+}
+
+.notice,
+.errorNotice {
+    margin: 0 0 24px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+}
+
+.errorNotice {
+    border-color: #d95d51;
+}
+
+.consentCard,
+.dashboardSection,
+.dangerZone {
+    margin-top: 64px;
+    padding-top: 40px;
+    border-top: 1px solid var(--line);
+}
+
+.consentCard h2,
+.dashboardSection h2,
+.dangerZone h2 {
+    font-size: 2rem;
+}
+
+.consentCard {
+    margin: 0 0 28px;
+    padding: 28px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.consentCard h2 {
+    margin-bottom: 16px;
+}
+
+.consentActions {
+    display: flex;
+    gap: 12px;
+}
+
+.finePrint,
+small {
+    color: var(--quiet);
+    font-size: 12px;
+}
+
+.finePrint {
+    margin-top: 26px;
+    overflow-wrap: anywhere;
+}
+
+.modelList,
+.compactList {
+    border-top: 1px solid var(--line);
+}
+
+.modelRow,
+.compactList > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+}
+
+.modelRow > span:first-child,
+.compactList span {
+    display: grid;
+}
+
+.modelRow:hover strong {
+    color: var(--accent);
+}
+
+.compactList {
+    margin-top: 32px;
+}
+
+.dangerZone {
+    border-color: #633832;
+}
+
+.checkLabel {
+    display: flex;
+    align-items: center;
+    grid-template-columns: none;
+    margin-bottom: 16px;
+}
+
+.checkLabel input {
+    min-width: 0;
+    min-height: 0;
+}
+
+@media (max-width: 620px) {
+    .accountNav {
+        flex-wrap: wrap;
+        margin-bottom: 48px;
+    }
+
+    .accountNav span {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .inlineForm,
+    .modelRow,
+    .compactList > div {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    input,
+    select {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
 .modelExample > .eyebrow {
     margin: 0 0 18px;
 }

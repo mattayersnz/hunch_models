@@ -40,7 +40,11 @@ Never run the local smoke test or Hunch's `test-model-service.sh` against hunch.
   `packages/kit/src/pieces.ts`; unknown names draw as labelled crates. Re-bundle for Hunch.
 - **The database is reachable only through the site's route handlers.** RLS on, no
   policies, no privileges for `anon`/`authenticated`; routes use the service role and check
-  ownership. Refusals are 404, never 403.
+  ownership. A missing or foreign owner resource is always 404. OAuth agents use `/mcp`;
+  OAuth tokens are refused by the private Hunch REST surface.
+- **`site/AGENT_PROTOCOL.md` is the external contract.** `/agents`, the raw Markdown route
+  and MCP resources all read that file. Keep MCP changes additive and keep unpublish,
+  account deletion and response moderation human-only.
 - **Schema changes are new migration files** in `supabase/migrations/`. The migrations
   workflow applies them to production on push to `main`, alongside Vercel's deploy, so a
   migration must work with the code already live.

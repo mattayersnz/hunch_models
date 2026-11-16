@@ -118,6 +118,30 @@ async function signIn(): Promise<string> {
 const responder = randomBytes(12).toString("hex");
 const other = randomBytes(12).toString("hex");
 
+// MARK: - Agent discovery and web account entry
+
+const protocol = await call("GET", "/agents/protocol.md");
+assert.equal(protocol.status, 200, protocol.text);
+assert.match(protocol.headers.get("content-type") ?? "", /text\/markdown/);
+assert.ok(protocol.text.includes("https://hunch.tech/mcp"));
+step("the canonical agent protocol is available as Markdown");
+
+const metadata = await call("GET", "/.well-known/oauth-protected-resource/mcp");
+assert.equal(metadata.status, 200, metadata.text);
+assert.equal(metadata.json.resource, `${SITE}/mcp`);
+assert.deepEqual(metadata.json.scopes_supported, ["email"]);
+step("MCP publishes protected-resource discovery metadata");
+
+const unauthenticatedMcp = await call("POST", "/mcp");
+assert.equal(unauthenticatedMcp.status, 401, unauthenticatedMcp.text);
+assert.match(unauthenticatedMcp.headers.get("www-authenticate") ?? "", /resource_metadata=/);
+step("MCP requires an OAuth bearer token");
+
+const signInPage = await call("GET", "/sign-in");
+assert.equal(signInPage.status, 200, signInPage.text);
+assert.ok(signInPage.text.includes("magic link"));
+step("the web account offers passwordless sign-in");
+
 // MARK: - Signing in and publishing
 
 if (ADMIN_MODE) {

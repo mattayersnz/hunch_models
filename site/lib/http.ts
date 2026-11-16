@@ -63,11 +63,26 @@ export interface Owner {
     email: string | null;
 }
 
+function isOAuthToken(token: string): boolean {
+    try {
+        const value = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as unknown;
+        return typeof value === "object" && value !== null && typeof (value as Record<string, unknown>).client_id === "string";
+    } catch {
+        return false;
+    }
+}
+
 /** The signed-in owner from `Authorization: Bearer <access token>`. */
 export async function requireOwner(request: Request): Promise<Owner> {
     const header = request.headers.get("authorization") ?? "";
     const match = /^Bearer\s+(\S+)$/i.exec(header);
     if (!match) throw new HttpError(401, "sign in first");
+    if (isOAuthToken(match[1])) {
+        // OAuth credentials are intentionally constrained to the MCP contract. The
+        // app's older REST surface includes destructive calls and is for Hunch only.
+        // This is only a deny decision; getUser below still verifies every accepted JWT.
+        throw new HttpError(403, "OAuth agents must use the MCP connection");
+    }
     const { data, error } = await admin().auth.getUser(match[1]);
     if (error || !data.user) throw new HttpError(401, "sign in again");
     return { id: data.user.id, email: data.user.email ?? null };
