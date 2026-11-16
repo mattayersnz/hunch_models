@@ -1,32 +1,8 @@
-import { modelHtml, PAGE_CSS, readModel, THEME_CSS } from "@hunch/model";
+import { PAGE_CSS, THEME_CSS } from "@hunch/model";
+import { ModelTransformDemo } from "./model-transform-demo";
 
 const appStoreUrl = "https://apps.apple.com/nz/app/hunch/id6737346341";
 
-const exampleModel = readModel({
-    title: "A quieter start to the workday",
-    premise: "People choose better work when messages can wait for the first half hour.",
-    scenes: [{
-        name: "First hour",
-        emoji: "☕",
-        pieces: ["desk", "chair", "laptop", "cup"],
-        people: [{
-            name: "Alex",
-            about: "works from home",
-            does: [
-                "makes coffee before opening the laptop",
-                "writes down one priority at the desk",
-            ],
-            thinks: [
-                { text: "If I check messages now, I will lose the morning", marks: ["hunch"] },
-                "I know what matters before everyone else weighs in",
-            ],
-        }],
-    }],
-}).model;
-
-if (exampleModel === null) throw new Error("The homepage example model must be valid");
-
-const exampleHtml = modelHtml(exampleModel);
 const rendererCss = `${THEME_CSS}${PAGE_CSS.replace("body{", ".hm{")}`;
 
 const steps = [
@@ -80,12 +56,7 @@ export default function Home() {
                     </div>
                 </div>
 
-                <div className="modelExample">
-                    <p className="eyebrow">Example hunch model</p>
-                    <div className="hm heroModel" data-theme="dark">
-                        <div className="hm-page" dangerouslySetInnerHTML={{ __html: exampleHtml }} />
-                    </div>
-                </div>
+                <ModelTransformDemo />
             </section>
 
             <section className="why" aria-labelledby="why-title">
