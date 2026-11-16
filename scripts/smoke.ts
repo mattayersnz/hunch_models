@@ -267,6 +267,34 @@ assert.equal((await call("DELETE", `/api/models/${published.slug}`, undefined, t
 assert.equal((await call("GET", `/m/${published.slug}`)).status, 404);
 step("unpublishing removes the page");
 
+// MARK: - Deleting the account
+
+assert.equal((await call("DELETE", "/api/account")).status, 401);
+step("account deletion needs a session");
+
+const accountModelReply = await call("POST", "/api/models", { model: draft }, token);
+assert.equal(accountModelReply.status, 201, accountModelReply.text);
+const accountModel = accountModelReply.json as unknown as Published;
+const accountInviteReply = await call("POST", `/api/models/${accountModel.slug}/invites`, { label: "Deletion check" }, token);
+assert.equal(accountInviteReply.status, 201, accountInviteReply.text);
+const accountInvite = new URL(String(accountInviteReply.json.url));
+const accountKey = accountInvite.searchParams.get("k")!;
+assert.equal((await call(
+    "POST",
+    `/m/${accountModel.slug}/respond`,
+    { key: accountKey, responder: randomBytes(12).toString("hex"), piece: lineId, kind: "resonates" },
+    undefined,
+    { origin: SITE },
+)).status, 201);
+
+assert.equal((await call("DELETE", "/api/account", undefined, token)).status, 200);
+assert.equal((await call("GET", `/m/${accountModel.slug}?k=${accountKey}`)).status, 404);
+assert.equal((await call("GET", "/api/models", undefined, token)).status, 401);
+const deletedUser = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as { sub?: string };
+const deletedUserIndex = deletedUser.sub ? madeUsers.indexOf(deletedUser.sub) : -1;
+if (deletedUserIndex >= 0) madeUsers.splice(deletedUserIndex, 1);
+step("deleting an account removes its user, models, invites and responses");
+
 if (madeUsers.length) {
     for (const id of madeUsers) await admin("DELETE", `users/${id}`);
     const left = (await admin("GET", "users?per_page=200")) as { users?: { id: string }[] };

@@ -85,6 +85,7 @@ check ownership themselves.
 | `POST /api/auth/code` `{email}` | Hunch | emails a six-digit code |
 | `POST /api/auth/verify` `{email, code}` | Hunch | returns a session |
 | `POST /api/auth/refresh` `{refresh_token}` | Hunch | renews it |
+| `DELETE /api/account` | owner | permanently delete the account and everything it published |
 | `GET /api/models` | owner | their models with response counts |
 | `POST /api/models` `{model, visibility?}` | owner | publish; invite-only unless `"public"` |
 | `GET/PUT/DELETE /api/models/:slug` | owner | read, republish (a new version only if changed), unpublish |

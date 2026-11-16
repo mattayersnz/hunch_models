@@ -162,6 +162,7 @@ answer "not found", so a slug alone says nothing about whether a private model e
 | Route | Who | What |
 |---|---|---|
 | `POST /api/auth/code` · `verify` · `refresh` | Hunch | email a code, exchange it for a session, renew it |
+| `DELETE /api/account` | owner | permanently delete the account and everything it published |
 | `GET` / `POST /api/models` | owner | list with counts; publish (invite-only unless asked) |
 | `GET` / `PUT` / `DELETE /api/models/:slug` | owner | read; republish (a version only if changed); unpublish |
 | `GET /api/models/:slug/responses` | owner | every response, with its piece's text and whether it is current |
@@ -240,5 +241,3 @@ Rules worth knowing before changing any of it:
   or MCP server over the API yet (phase 4 of the plan).
 - In Hunch, a response does not yet scroll the editor to its line.
 - The home page at hunch.tech is a placeholder.
-- No account deletion endpoint: unpublishing deletes a model and its responses, but removing
-  the account itself is a manual request.
