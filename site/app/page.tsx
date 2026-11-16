@@ -69,10 +69,14 @@ export default function Home() {
                         people think—so others can say where it matches their experience.
                     </p>
                     <div className="heroActions">
-                        <AppStoreLink />
-                        <a className="agentLink" href="/agents">Connect an agent</a>
-                        <a className="agentLink" href="/dashboard">Your models</a>
-                        <p>Hunch is available for iPhone and Mac.</p>
+                        <div className="heroDownload">
+                            <AppStoreLink />
+                            <p>Hunch is available for iPhone and Mac.</p>
+                        </div>
+                        <nav className="heroLinks" aria-label="Hunch models">
+                            <a className="agentLink" href="/agents">Connect an agent</a>
+                            <a className="agentLink" href="/dashboard">Your models</a>
+                        </nav>
                     </div>
                 </div>
 

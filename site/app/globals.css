@@ -104,7 +104,22 @@ h3 {
 .heroActions {
     display: flex;
     align-items: center;
-    gap: 22px;
+    flex-wrap: wrap;
+    gap: 18px 28px;
+}
+
+.heroDownload {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.heroLinks {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding-left: 28px;
+    border-left: 1px solid var(--line);
 }
 
 .heroActions p {
@@ -136,15 +151,41 @@ h3 {
     height: 40px;
 }
 
+/* The eyebrow's type, so the two links read as labels of the page rather than
+   as body links: no underline, and an arrow that says they go somewhere. */
 .agentLink {
-    color: var(--text);
-    font-size: 14px;
-    text-decoration-color: var(--quiet);
-    text-underline-offset: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    color: var(--muted);
+    font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .14em;
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 160ms ease;
 }
 
-.agentLink:hover {
+.agentLink::after {
+    content: "\2192";
+    color: var(--quiet);
+    letter-spacing: 0;
+    transition: color 160ms ease, transform 160ms ease;
+}
+
+.agentLink:hover,
+.agentLink:hover::after {
     color: var(--accent);
+}
+
+.agentLink:hover::after {
+    transform: translateX(3px);
+}
+
+.agentLink:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
 }
 
 .docsShell {
@@ -689,6 +730,11 @@ footer {
         max-width: none;
     }
 
+    .heroLinks {
+        padding-left: 0;
+        border-left: 0;
+    }
+
     .why,
     .process,
     .closing {
@@ -732,7 +778,9 @@ footer {
         scroll-behavior: auto;
     }
 
-    .appStoreLink {
+    .appStoreLink,
+    .agentLink,
+    .agentLink::after {
         transition: none;
     }
 }
