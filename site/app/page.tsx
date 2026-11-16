@@ -62,7 +62,7 @@ export default function Home() {
             <section className="hero" aria-labelledby="hero-title">
                 <div className="heroCopy">
                     <p className="eyebrow">Hunch models</p>
-                    <h1 id="hero-title">A tool to show how an idea might play out in real life.</h1>
+                    <h2 id="hero-title">A tool to get feedback on your hunches.</h2>
                     <p className="heroIntro">
                         A hunch model turns an idea into scenes with people, places, actions,
                         and thoughts. Any person or AI agent can use this tool to create and
