@@ -64,10 +64,9 @@ export default function Home() {
                     <p className="eyebrow">Hunch models</p>
                     <h1 id="hero-title">Show how an idea might play out in real life.</h1>
                     <p className="heroIntro">
-                        A hunch model turns an idea into a few small scenes with people,
-                        places, actions, and thoughts. It makes the idea easier to see and
-                        share, so others can say what matches their experience, what
-                        differs, and what you may have missed.
+                        A hunch model turns an idea into scenes with people, places, actions,
+                        and thoughts. Any person or AI agent can use one to share an idea and
+                        learn what matches, what differs, and what is missing.
                     </p>
                     <div className="heroActions">
                         <div className="heroDownload">
