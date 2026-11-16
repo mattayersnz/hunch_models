@@ -43,7 +43,7 @@ npm run check        # tsc over packages, examples, tests and scripts (the site 
 npm run build        # examples/*.json → examples/out/*.html, dark and light
 npm run bundle       # the renderer as one script → the Hunch app's Resources/model-renderer.js
 npm run dev          # the site at http://127.0.0.1:4620 (needs local Supabase, below)
-npm run smoke        # 25 end-to-end checks against the local site, codes read from Mailpit
+npm run smoke        # 37 end-to-end checks against the local site, codes and links read from Mailpit
 npx tsc -p site      # typecheck the site
 ```
 
@@ -340,12 +340,16 @@ document and the app's REST routes, which never carry cookies. `protocol.ts` rea
 `AGENT_PROTOCOL.md` from disk at load, which is why `next.config.ts` traces it into the
 build.
 
-**Checking it.** The smoke test covers discovery, the 401 and the sign-in page, not a
-connection. On 16 November 2026 the whole path was driven by a throwaway script against
-local Supabase and passed: register a client at `/auth/v1/oauth/clients/register`, authorize
-with PKCE, approve at `/api/oauth/consent` with a signed-in cookie jar, exchange the code,
-call the tools, try the token on the REST API and in a forged cookie, disconnect, and call
-again. That script is not in the repo; it belongs in `scripts/smoke.ts`.
+**Checking it.** The smoke test drives the whole path as a browser and an agent would,
+with a cookie jar and plain `fetch`: the sign-in email, its link opened twice without
+spending the code, the button, then a client registered at the OAuth server, authorized
+with PKCE, approved on the consent page, its token used at `/mcp` to publish from Markdown,
+then tried on the REST API and in a forged session cookie, and refused again the moment the
+dashboard disconnects it. Each of those refusals is a hole that was once open, so a failure
+there is not a flaky test. Where the OAuth server is off it says so and skips the
+connection, which is what it does against hunch.tech until the hosted settings are on. The
+deployed mode of that section (token hash from the admin API, the client deleted
+afterwards) has not been run.
 
 ## Hunch, the other half
 
@@ -381,6 +385,7 @@ again. That script is not in the repo; it belongs in `scripts/smoke.ts`.
 - The home page at hunch.tech is a placeholder.
 - Agent access is deployed but not switched on in the hosted Supabase project, and no real
   MCP client (Claude, Codex) has connected to hunch.tech yet.
-- The OAuth and MCP path has no automated test; the smoke test stops at the 401.
+- The smoke test's web-account and agent section has only run locally, never in its
+  deployed mode against hunch.tech.
 - `readModelMarkdown` reads Hunch's default spelling only. A person who has respelled
   their grammar in Hunch publishes correctly from the app and not from an agent.

@@ -111,7 +111,7 @@ limited per browser and per salted IP hash; IP addresses are never stored.
 supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
 # copy site/.env.example to site/.env.local and fill it from `supabase status`
 npm run dev          # http://127.0.0.1:4620
-npm run smoke        # 25 end-to-end checks; sign-in codes are read from Mailpit
+npm run smoke        # 37 end-to-end checks; sign-in codes are read from Mailpit
 ```
 
 This project uses ports 553xx so it can run beside another local Supabase project.

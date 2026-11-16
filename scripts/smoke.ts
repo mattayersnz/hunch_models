@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 const SITE = process.argv[2] ?? "http://127.0.0.1:4620";
 const MAIL = process.argv[3] ?? "http://127.0.0.1:55324";
@@ -67,18 +67,94 @@ async function call(method: string, path: string, body?: unknown, token?: string
     return { status: response.status, json, text, headers: response.headers };
 }
 
-async function codeFor(email: string): Promise<string> {
+interface Mail {
+    Text: string;
+    HTML: string;
+}
+
+async function mailFor(email: string): Promise<Mail> {
     for (let attempt = 0; attempt < 20; attempt++) {
         const list = (await (await fetch(`${MAIL}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`)).json()) as { messages: { ID: string }[] };
-        if (list.messages.length) {
-            const message = (await (await fetch(`${MAIL}/api/v1/message/${list.messages[0].ID}`)).json()) as { Text: string; HTML: string };
-            const match = /\b(\d{6})\b/.exec(message.Text || message.HTML);
-            if (match) return match[1];
-        }
+        if (list.messages.length) return (await (await fetch(`${MAIL}/api/v1/message/${list.messages[0].ID}`)).json()) as Mail;
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    throw new Error(`no code arrived for ${email}`);
+    throw new Error(`no email arrived for ${email}`);
 }
+
+function codeIn(message: Mail): string {
+    const match = /\b(\d{6})\b/.exec(message.Text || message.HTML);
+    if (!match) throw new Error("the email carries no code");
+    return match[1];
+}
+
+/** The path of the email's sign-in link: /auth/confirm?token_hash=… */
+function linkIn(message: Mail): string {
+    const match = /href="[^"]*(\/auth\/confirm\?token_hash=[^"&]+)"/.exec(message.HTML);
+    if (!match) throw new Error("the email carries no sign-in link");
+    return match[1];
+}
+
+const codeFor = async (email: string): Promise<string> => codeIn(await mailFor(email));
+
+// MARK: - A browser, for the web account
+
+/** A cookie jar: the web account is a cookie session, which `call` does not keep. */
+type Jar = Map<string, string>;
+
+function keep(jar: Jar, response: Response): void {
+    for (const line of response.headers.getSetCookie()) {
+        const pair = line.split(";")[0];
+        const at = pair.indexOf("=");
+        const name = pair.slice(0, at);
+        const value = pair.slice(at + 1);
+        if (!value || /max-age=0/i.test(line)) jar.delete(name);
+        else jar.set(name, value);
+    }
+}
+
+const cookies = (jar: Jar): string => [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
+
+async function visit(jar: Jar, path: string): Promise<{ status: number; text: string; location: string }> {
+    const response = await fetch(SITE + path, { redirect: "manual", headers: { cookie: cookies(jar) } });
+    keep(jar, response);
+    return { status: response.status, text: await response.text(), location: response.headers.get("location") ?? "" };
+}
+
+/** A form post, as the site's own pages make it. `origin: null` sends none. */
+async function post(jar: Jar, path: string, fields: Record<string, string>, origin: string | null = SITE): Promise<{ status: number; location: string }> {
+    const response = await fetch(SITE + path, {
+        method: "POST",
+        redirect: "manual",
+        headers: { "content-type": "application/x-www-form-urlencoded", cookie: cookies(jar), ...(origin ? { origin } : {}) },
+        body: new URLSearchParams(fields),
+    });
+    keep(jar, response);
+    return { status: response.status, location: response.headers.get("location") ?? "" };
+}
+
+// MARK: - An MCP client
+
+interface ToolReply {
+    isError: boolean;
+    data: Record<string, unknown>;
+}
+
+async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}): Promise<Response> {
+    return fetch(`${SITE}/mcp`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+}
+
+async function tool(token: string, name: string, args: Record<string, unknown> = {}): Promise<ToolReply> {
+    const response = await mcp(token, "tools/call", { name, arguments: args });
+    const reply = (await response.json()) as { result?: { isError?: boolean; content: { text: string }[] } };
+    assert.ok(reply.result, `${name} answered ${response.status} with no result`);
+    return { isError: reply.result.isError === true, data: JSON.parse(reply.result.content[0].text) as Record<string, unknown> };
+}
+
+const claimsOf = (jwt: string): Record<string, unknown> => JSON.parse(Buffer.from(jwt.split(".")[1], "base64url").toString()) as Record<string, unknown>;
 
 async function admin(method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
     const response = await fetch(`${SUPABASE}/auth/v1/admin/${path}`, {
@@ -318,6 +394,185 @@ const deletedUser = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toS
 const deletedUserIndex = deletedUser.sub ? madeUsers.indexOf(deletedUser.sub) : -1;
 if (deletedUserIndex >= 0) madeUsers.splice(deletedUserIndex, 1);
 step("deleting an account removes its user, models, invites and responses");
+
+// MARK: - The web account, and an agent over OAuth and MCP
+
+const browser: Jar = new Map();
+const webEmail = `smoke-web-${randomBytes(4).toString("hex")}@example.test`;
+let webLink: string;
+let appCode: string | null = null;
+if (ADMIN_MODE) {
+    // No inbox to read: the admin API hands over the same token hash the email would carry.
+    const user = await admin("POST", "users", { email: webEmail, email_confirm: true });
+    madeUsers.push(String(user.id));
+    const link = await admin("POST", "generate_link", { type: "magiclink", email: webEmail });
+    const properties = (link.properties ?? link) as Record<string, unknown>;
+    webLink = `/auth/confirm?token_hash=${encodeURIComponent(String(properties.hashed_token))}`;
+} else {
+    assert.equal((await post(browser, "/api/web-auth/code", { email: webEmail, next: "/dashboard" }, "https://elsewhere.example")).status, 403);
+    const asked = await post(browser, "/api/web-auth/code", { email: webEmail, next: "/dashboard" });
+    assert.equal(asked.status, 303);
+    assert.match(asked.location, /sent=1/, asked.location);
+    const message = await mailFor(webEmail);
+    webLink = linkIn(message);
+    appCode = codeIn(message);
+    step("a sign-in email is sent to the site's own form only, with a code and a link");
+}
+
+// A mail scanner follows links. Opening this one must spend nothing.
+const scanner: Jar = new Map();
+for (let round = 0; round < 2; round++) {
+    const page = await visit(scanner, webLink);
+    assert.equal(page.status, 200, page.text.slice(0, 200));
+    assert.ok(page.text.includes("Sign in on this browser"));
+}
+if (appCode) {
+    // The same token is the code Hunch asks its owner to type. It must still work.
+    const second = `smoke-web-${randomBytes(4).toString("hex")}@example.test`;
+    assert.equal((await post(new Map(), "/api/web-auth/code", { email: second, next: "/dashboard" })).status, 303);
+    const message = await mailFor(second);
+    await visit(new Map(), linkIn(message));
+    const typed = await call("POST", "/api/auth/verify", { email: second, code: codeIn(message) });
+    assert.equal(typed.status, 200, typed.text);
+    assert.equal((await call("DELETE", "/api/account", undefined, (typed.json as unknown as Session).access_token)).status, 200);
+}
+step("opening the emailed link only shows a button, and leaves the code usable");
+
+const tokenHash = new URL(webLink, SITE).searchParams.get("token_hash")!;
+assert.equal((await post(browser, "/api/web-auth/verify", { token_hash: tokenHash }, null)).status, 403);
+const signedIn = await post(browser, "/api/web-auth/verify", { token_hash: tokenHash });
+assert.equal(signedIn.status, 303);
+assert.ok(signedIn.location.endsWith("/dashboard"), signedIn.location);
+const dashboard = await visit(browser, "/dashboard");
+assert.equal(dashboard.status, 200);
+assert.ok(dashboard.text.includes(webEmail));
+assert.match((await post(new Map(), "/api/web-auth/verify", { token_hash: tokenHash })).location, /error=link/);
+step("pressing the button signs the browser in, once");
+
+const oauthServer = await fetch(`${SUPABASE}/auth/v1/.well-known/oauth-authorization-server`);
+if (!oauthServer.ok) {
+    console.log(`# skipped the agent connection: the Supabase OAuth server is off (${oauthServer.status})`);
+} else {
+    const endpoints = (await oauthServer.json()) as { registration_endpoint: string; authorization_endpoint: string; token_endpoint: string };
+    const redirect = "http://127.0.0.1:9999/callback";
+    const registered = await fetch(endpoints.registration_endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_name: "Hunch smoke test", redirect_uris: [redirect], grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" }),
+    });
+    const client = (await registered.json()) as { client_id?: string };
+    assert.ok(client.client_id, `registration answered ${registered.status}`);
+    const clientId = client.client_id;
+
+    const verifier = randomBytes(32).toString("base64url");
+    const authorize = new URL(endpoints.authorization_endpoint);
+    const asking: Record<string, string> = {
+        response_type: "code", client_id: clientId, redirect_uri: redirect, scope: "email", state: "smoke",
+        code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", resource: `${SITE}/mcp`,
+    };
+    for (const [name, value] of Object.entries(asking)) authorize.searchParams.set(name, value);
+    const sentToConsent = (await fetch(authorize, { redirect: "manual" })).headers.get("location") ?? "";
+    assert.match(sentToConsent, /\/oauth\/consent\?authorization_id=/, sentToConsent);
+    const consentPath = sentToConsent.replace(/^https?:\/\/[^/]+/, "");
+    const authorizationId = new URL(sentToConsent).searchParams.get("authorization_id")!;
+    step("an agent registers itself and is sent to the consent page");
+
+    assert.match((await visit(new Map(), consentPath)).location, /\/sign-in/);
+    const consent = await visit(browser, consentPath);
+    assert.equal(consent.status, 200);
+    assert.ok(consent.text.includes("Hunch smoke test"));
+    assert.ok(consent.text.includes("127.0.0.1:9999"), "the consent page does not say where the connection goes");
+    assert.equal((await post(browser, "/api/oauth/consent", { authorization_id: authorizationId, decision: "approve" }, "https://elsewhere.example")).status, 403);
+    step("consent needs a signed-in owner on this site, and names the agent's destination");
+
+    const approved = await post(browser, "/api/oauth/consent", { authorization_id: authorizationId, decision: "approve" });
+    assert.ok(approved.location.startsWith(redirect), approved.location);
+    const exchanged = await fetch(endpoints.token_endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "authorization_code", code: new URL(approved.location).searchParams.get("code")!, redirect_uri: redirect, client_id: clientId, code_verifier: verifier }),
+    });
+    const grant = (await exchanged.json()) as { access_token?: string; refresh_token?: string };
+    assert.ok(grant.access_token, `the token exchange answered ${exchanged.status}`);
+    const agent = grant.access_token;
+    const claims = claimsOf(agent);
+    assert.equal(claims.aud, "https://hunch.tech/mcp", "the access-token hook is not enabled");
+    assert.equal(claims.client_id, clientId);
+    step("approval gives the agent a token stamped for MCP");
+
+    const hello = await mcp(agent, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "smoke", version: "1" } });
+    assert.equal(hello.status, 200, await hello.clone().text());
+    assert.equal(hello.headers.get("access-control-allow-origin"), "*");
+    assert.ok((await hello.text()).includes("hunch-models"));
+    // A live Hunch session with a model of its own: the first owner's account is gone by now.
+    const stranger = await signIn();
+    const theirs = await call("POST", "/api/models", { model: draft }, stranger);
+    assert.equal(theirs.status, 201, theirs.text);
+    assert.equal((await call("GET", "/api/models", undefined, stranger)).status, 200);
+    assert.equal((await mcp(stranger, "tools/list")).status, 401, "a Hunch app session opened /mcp");
+    step("MCP opens for the agent's token and not for a Hunch session");
+
+    // A task before the first scene and one inside it: neither may be published.
+    const source = "# Smoke over MCP\n:type: model\n[ ] a private task\nThe premise.\n\n## Home\n:who: Mia\n. waits\n[ ] call [Bob]\n[hopes] ?";
+    const made = await tool(agent, "publish_model", { markdown: source });
+    assert.ok(!made.isError, JSON.stringify(made.data));
+    const agentSlug = String(made.data.slug);
+    assert.equal(made.data.visibility, "invite");
+    assert.match(String(made.data.share_url), /\?k=[A-Za-z0-9]{32}$/);
+    assert.equal((await call("GET", `/m/${agentSlug}`)).status, 404);
+    assert.equal((await fetch(String(made.data.share_url))).status, 200);
+    const read = await tool(agent, "get_model", { slug: agentSlug });
+    const stored = JSON.stringify(read.data.model);
+    assert.equal((read.data.model as { premise?: string }).premise, "The premise.");
+    assert.ok(!stored.includes("task") && !stored.includes("Bob"), stored);
+    step("an agent publishes from Markdown, invite-only, and private lines stay private");
+
+    const refused = await tool(agent, "publish_model", { markdown: "# No type\n\n## Home" });
+    assert.ok(refused.isError);
+    assert.equal(refused.data.code, "invalid_model");
+    assert.ok(Array.isArray(refused.data.problems));
+    assert.equal((await tool(agent, "get_model", { slug: (theirs.json as unknown as Published).slug })).data.code, "not_found");
+    assert.equal((await call("DELETE", "/api/account", undefined, stranger)).status, 200);
+    const strangerId = String(claimsOf(stranger).sub);
+    if (madeUsers.includes(strangerId)) madeUsers.splice(madeUsers.indexOf(strangerId), 1);
+    step("refused Markdown says why, and another owner's model is not found");
+
+    // The token is good at /mcp and nowhere else, even dressed as a browser session.
+    assert.equal((await call("GET", "/api/models", undefined, agent)).status, 403);
+    const sessionCookie = [...browser.keys()].find((name) => /^sb-.*-auth-token(\.0)?$/.test(name));
+    assert.ok(sessionCookie, "no session cookie to imitate");
+    const session = { access_token: agent, refresh_token: grant.refresh_token, token_type: "bearer", expires_in: 3600, expires_at: claims.exp, user: { id: claims.sub } };
+    const forged: Jar = new Map([[sessionCookie.replace(/\.0$/, ""), `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`]]);
+    assert.match((await visit(forged, "/dashboard")).location, /\/sign-in/);
+    assert.match((await post(forged, "/api/dashboard", { action: "unpublish", slug: agentSlug, confirm: "yes", return: "/dashboard" })).location, /\/sign-in/);
+    assert.match((await post(forged, "/api/dashboard", { action: "delete_account", confirm: "DELETE", return: "/" })).location, /\/sign-in/);
+    assert.ok(!(await tool(agent, "get_model", { slug: agentSlug })).isError, "the forged session changed something");
+    step("the agent's token is refused by the REST API and as a dashboard session");
+
+    const disconnected = await post(browser, "/api/dashboard", { action: "revoke_grant", client_id: clientId, return: "/dashboard" });
+    assert.equal(disconnected.status, 303);
+    assert.ok(!disconnected.location.includes("error"), disconnected.location);
+    const after = await mcp(agent, "tools/list");
+    assert.equal(after.status, 401);
+    assert.match(after.headers.get("www-authenticate") ?? "", /invalid_token/);
+    step("disconnecting the agent stops its token at once");
+
+    if (ADMIN_MODE) {
+        // Best effort: a registered client is the one thing deleting the user leaves behind.
+        await fetch(`${SUPABASE}/auth/v1/admin/oauth/clients/${clientId}`, { method: "DELETE", headers: { apikey: SERVICE_KEY!, ...(SERVICE_KEY!.startsWith("ey") ? { authorization: `Bearer ${SERVICE_KEY}` } : {}) } });
+    }
+}
+
+assert.equal((await post(browser, "/api/dashboard", { action: "delete_account", confirm: "DELETE", return: "/" }, null)).status, 403);
+const closed = await post(browser, "/api/dashboard", { action: "delete_account", confirm: "DELETE", return: "/" });
+assert.equal(closed.status, 303);
+assert.match((await visit(browser, "/dashboard")).location, /\/sign-in/);
+if (ADMIN_MODE) {
+    const users = (await admin("GET", "users?per_page=200")) as { users?: { id: string; email: string }[] };
+    assert.ok(!users.users?.some((user) => user.email === webEmail), "the web account's user remains");
+    for (const id of [...madeUsers]) if (!users.users?.some((user) => user.id === id)) madeUsers.splice(madeUsers.indexOf(id), 1);
+}
+step("the dashboard deletes the web account, and only from the site's own form");
 
 if (madeUsers.length) {
     for (const id of madeUsers) await admin("DELETE", `users/${id}`);
