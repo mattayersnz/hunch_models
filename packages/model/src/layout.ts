@@ -42,6 +42,8 @@ export interface PlacedPiece {
     cell: Cell;
     /** Index into `people` of whoever sits on it. */
     seatedBy: number | null;
+    /** Small props can share a host cell by sitting in one of its surface slots. */
+    surface: { host: number; at: [x: number, y: number, z: number] } | null;
 }
 
 export interface PlacedPerson {
@@ -81,7 +83,7 @@ export function layoutScene(scene: Scene): SceneLayout {
     const peopleCells = PEOPLE_CELLS.slice(0, scene.people.length);
     const pieces: PlacedPiece[] = scene.pieces.map((name) => {
         const def = pieceNamed(name);
-        return { name, def: def ?? CRATE, known: def !== null, cell: [0, 0], seatedBy: null };
+        return { name, def: def ?? CRATE, known: def !== null, cell: [0, 0], seatedBy: null, surface: null };
     });
 
     // People take seats in order while there are seats; the seat moves to them.
@@ -119,6 +121,30 @@ export function layoutScene(scene: Scene): SceneLayout {
         reservedCells.add(cell.join());
     }
 
+    // A laptop or cup belongs on the desk when the scene has one. The prop keeps
+    // its own identity (and therefore its own action marker), but shares the host's
+    // cell and is drawn from its stand-free surface shapes above the desktop.
+    const surfaced = new Set<number>();
+    for (const hostIndex of paired) {
+        const host = pieces[hostIndex];
+        if (!host.def.surface) continue;
+        for (const [x, y] of host.def.surface.slots) {
+            const propIndex = pieces.findIndex((piece, index) =>
+                index !== hostIndex &&
+                piece.seatedBy === null &&
+                piece.surface === null &&
+                piece.def.surfaceShapes !== undefined &&
+                !paired.has(index) &&
+                !surfaced.has(index)
+            );
+            if (propIndex < 0) break;
+            const prop = pieces[propIndex];
+            prop.cell = host.cell;
+            prop.surface = { host: hostIndex, at: [x, y, host.def.surface.z] };
+            surfaced.add(propIndex);
+        }
+    }
+
     // Everything else, back cells first; within a band, nearest the middle of the screen first.
     const free: Cell[] = [];
     for (let col = 0; col < GRID; col++) for (let row = 0; row < GRID; row++) free.push([col, row]);
@@ -126,7 +152,9 @@ export function layoutScene(scene: Scene): SceneLayout {
         .filter((cell) => !peopleCells.some((taken) => sameCell(taken, cell)) && !reservedCells.has(cell.join()))
         .sort((a, b) => a[0] + a[1] - (b[0] + b[1]) || Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]) || a[0] - b[0]);
     let next = 0;
-    for (const [index, piece] of pieces.entries()) if (piece.seatedBy === null && !paired.has(index)) piece.cell = open[next++];
+    for (const [index, piece] of pieces.entries()) {
+        if (piece.seatedBy === null && !paired.has(index) && !surfaced.has(index)) piece.cell = open[next++];
+    }
 
     const actionAt = new Map<string, number | null>();
     const labels = new Map<string, string>();

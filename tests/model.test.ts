@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashParts, layoutScene, lineId, modelHtml, pieceForText, readModel, type HunchModel, type ModelDraft } from "../packages/model/src/index.ts";
 import { separate } from "../packages/model/src/render.ts";
-import { personShapes, type Facing, type Vec2 } from "@hunch/kit";
+import { personShapes, pieceNamed, type Facing, type Vec2 } from "@hunch/kit";
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
 
@@ -122,6 +122,10 @@ test("no two things share a cell, and a seat moves under its sitter", () => {
                     assert.deepEqual(piece.cell, layout.people[piece.seatedBy].cell, `${file}: seat under its sitter`);
                     continue;
                 }
+                if (piece.surface !== null) {
+                    assert.deepEqual(piece.cell, layout.pieces[piece.surface.host].cell, `${file}: surface prop shares its host cell`);
+                    continue;
+                }
                 assert.ok(!cells.has(piece.cell.join()), `${file}: ${piece.name} shares a cell`);
                 cells.add(piece.cell.join());
             }
@@ -157,6 +161,14 @@ test("a sitter faces the same way as the seat", () => {
     assert.equal(layoutScene(model.scenes[0]).people[0].pose.facing, "south");
 });
 
+test("the surface laptop opens toward the sitter", () => {
+    const laptop = pieceNamed("laptop");
+    assert.ok(laptop?.surfaceShapes);
+    const screen = laptop.surfaceShapes.find((shape) => shape.kind === "box" && shape.h === 6);
+    assert.ok(screen?.kind === "box");
+    assert.ok(screen.plan.y > 0);
+});
+
 test("a seated worker has the desk directly in front of them", () => {
     const model = read({ title: "T", scenes: [{ name: "S", pieces: ["desk", "chair"], people: [{ name: "A" }] }] });
     const layout = layoutScene(model.scenes[0]);
@@ -164,6 +176,19 @@ test("a seated worker has the desk directly in front of them", () => {
     const desk = layout.pieces.find((piece) => piece.def.name === "desk");
     assert.ok(desk);
     assert.deepEqual(desk.cell, [person.cell[0], person.cell[1] + 0.6]);
+});
+
+test("small work props sit on the desk instead of separate floor stands", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", pieces: ["desk", "chair", "laptop", "cup"], people: [{ name: "A" }] }] });
+    const layout = layoutScene(model.scenes[0]);
+    const deskIndex = layout.pieces.findIndex((piece) => piece.def.name === "desk");
+    assert.ok(deskIndex >= 0);
+    for (const name of ["laptop", "cup"]) {
+        const prop = layout.pieces.find((piece) => piece.def.name === name);
+        assert.ok(prop);
+        assert.equal(prop.surface?.host, deskIndex);
+        assert.deepEqual(prop.cell, layout.pieces[deskIndex].cell);
+    }
 });
 
 test("the block figure supports all eight rotations", () => {

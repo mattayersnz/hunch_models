@@ -23,6 +23,10 @@ export interface PieceDef {
     name: string;
     aliases: string[];
     shapes: Shape[];
+    /** A host surface that can carry the small props whose surfaceShapes are defined. */
+    surface?: { z: number; slots: Vec2[] };
+    /** The prop without its floor stand, centred on the origin for a host surface slot. */
+    surfaceShapes?: Shape[];
     /** Drawn after a person sitting on this piece: the arm nearest the viewer. */
     front?: Shape[];
     /** Where a seated person's hips go, if this is something to sit on. */
@@ -56,6 +60,7 @@ export const PIECES: PieceDef[] = [
         name: "laptop",
         aliases: ["computer", "notebook", "macbook", "pc"],
         shapes: [b(6, 8, 18, 14, 0, 10, 1, { halo: true }), b(9, 11.5, 12, 1, 10, 7.5, 0, LIT), b(9, 12.5, 12, 7, 10, 0.8)],
+        surfaceShapes: [b(-6, -3.5, 12, 7, 0, 0.8, 0.5), b(-5, 2.5, 10, 1, 0.8, 6, 0, LIT)],
         height: 17.5,
     },
     {
@@ -104,6 +109,7 @@ export const PIECES: PieceDef[] = [
         name: "desk",
         aliases: ["workstation"],
         shapes: [b(4, 8, 2, 14, 0, 12), b(24, 8, 2, 14, 0, 12), b(4, 8, 22, 1.2, 4, 8), b(3, 7, 24, 16, 12, 1.5, 0.6, { halo: true })],
+        surface: { z: 13.5, slots: [[11.5, 15], [22, 16]] },
         height: 13.5,
     },
     {
@@ -171,6 +177,7 @@ export const PIECES: PieceDef[] = [
         name: "cup",
         aliases: ["coffee", "mug", "tea", "drink"],
         shapes: [...stand(), c(15, 15, 2.4, 10, 4, LIT)],
+        surfaceShapes: [c(0, 0, 2.2, 0, 3.8, LIT)],
         height: 14,
     },
     {
@@ -314,17 +321,18 @@ export interface PlacedShape {
     style: SolidStyle;
 }
 
-/** A shape set in cell (col, row), projected. */
-export function placeShapes(shapes: Shape[], col: number, row: number, projection: Projection): PlacedShape[] {
-    const ox = col * CELL;
-    const oy = row * CELL;
+/** A shape set in cell (col, row), optionally offset within it, then projected. */
+export function placeShapes(shapes: Shape[], col: number, row: number, projection: Projection, offset: Vec3 = [0, 0, 0]): PlacedShape[] {
+    const ox = col * CELL + offset[0];
+    const oy = row * CELL + offset[1];
+    const oz = offset[2];
     return shapes.map((shape) => ({
         paths:
             shape.kind === "box"
-                ? box({ ...shape.plan, x: shape.plan.x + ox, y: shape.plan.y + oy }, shape.z, shape.h, projection)
+                ? box({ ...shape.plan, x: shape.plan.x + ox, y: shape.plan.y + oy }, shape.z + oz, shape.h, projection)
                 : shape.kind === "poly"
-                  ? extrude(shape.ring.map(([x, y]) => [x + ox, y + oy]), shape.z, shape.h, projection)
-                  : cylinder(shape.cx + ox, shape.cy + oy, shape.r, shape.z, shape.h, projection),
+                  ? extrude(shape.ring.map(([x, y]) => [x + ox, y + oy]), shape.z + oz, shape.h, projection)
+                  : cylinder(shape.cx + ox, shape.cy + oy, shape.r, shape.z + oz, shape.h, projection),
         style: shape.style ?? {},
     }));
 }

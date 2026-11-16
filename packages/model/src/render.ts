@@ -26,11 +26,12 @@ import {
     unitOf,
     type PlacedShape,
     type Projection,
+    type Shape,
     type Vec2,
     type Vec3,
 } from "@hunch/kit";
 import type { HunchModel, Mark, ModelLine, Scene } from "./format.ts";
-import { GRID, layoutScene, type Cell, type SceneLayout } from "./layout.ts";
+import { GRID, layoutScene, type Cell, type PlacedPiece, type SceneLayout } from "./layout.ts";
 
 export type Theme = "dark" | "light" | "auto";
 
@@ -46,6 +47,24 @@ const LABEL_LIFT = 6;
 const asks = (marks: Mark[]): boolean => marks.includes("unsure") || marks.includes("hunch");
 
 const centreOf = ([col, row]: Cell): [number, number] => [col * CELL + CELL / 2, row * CELL + CELL / 2];
+
+const shapesHeight = (shapes: Shape[]): number => Math.max(0, ...shapes.map((shape) => shape.z + shape.h));
+
+function piecePlacement(piece: PlacedPiece, layout: SceneLayout): { cell: Cell; shapes: Shape[]; offset: Vec3; centre: Vec2; top: number } {
+    if (piece.surface === null) {
+        return { cell: piece.cell, shapes: piece.def.shapes, offset: [0, 0, 0], centre: centreOf(piece.cell), top: piece.def.height };
+    }
+    const host = layout.pieces[piece.surface.host];
+    const shapes = piece.def.surfaceShapes ?? piece.def.shapes;
+    const [x, y, z] = piece.surface.at;
+    return {
+        cell: host.cell,
+        shapes,
+        offset: [x, y, z],
+        centre: [host.cell[0] * CELL + x, host.cell[1] * CELL + y],
+        top: z + shapesHeight(shapes),
+    };
+}
 
 // MARK: - The drawing
 
@@ -147,7 +166,10 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
         [bounds.x0, bounds.y0, -5], [bounds.x1, bounds.y0, -5], [bounds.x0, bounds.y1, -5], [bounds.x1, bounds.y1, -5],
         [bounds.x0, bounds.y0, 0], [bounds.x1, bounds.y1, 0],
     ];
-    layout.pieces.forEach((piece) => reach.push([...centreOf(piece.cell), piece.def.height + (piece.known ? 20 : 6)] as Vec3));
+    layout.pieces.forEach((piece) => {
+        const placed = piecePlacement(piece, layout);
+        reach.push([...placed.centre, placed.top + (piece.known ? 20 : 6)] as Vec3);
+    });
     layout.people.forEach((placed) => {
         const rows = Math.ceil(placed.person.thinks.length / THOUGHTS_PER_ROW);
         reach.push([...centreOf(placed.cell), headTop(placed.pose) + 10 + rows * 10] as Vec3);
@@ -158,9 +180,16 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
 
     // Solids, in painter's order by cell: a seated person is drawn with their seat.
     const drawn: Drawn[] = [];
-    layout.pieces.forEach((piece) => {
-        if (piece.seatedBy !== null) return;
-        drawn.push({ depth: piece.cell[0] + piece.cell[1], svg: solids(placeShapes(piece.def.shapes, ...piece.cell, projection)) });
+    layout.pieces.forEach((piece, pieceIndex) => {
+        if (piece.seatedBy !== null || piece.surface !== null) return;
+        const surfaceProps = layout.pieces
+            .filter((candidate) => candidate.surface?.host === pieceIndex)
+            .map((candidate) => {
+                const placed = piecePlacement(candidate, layout);
+                return solids(placeShapes(placed.shapes, ...placed.cell, projection, placed.offset));
+            })
+            .join("");
+        drawn.push({ depth: piece.cell[0] + piece.cell[1], svg: solids(placeShapes(piece.def.shapes, ...piece.cell, projection)) + surfaceProps });
     });
     layout.people.forEach((placed) => {
         const seat = placed.seat === null ? null : layout.pieces[placed.seat];
@@ -192,7 +221,7 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
         const head = iso([placed.cell[0] * CELL + hx, placed.cell[1] * CELL + hy, hz], projection);
         // Names sit outside the group even though each figure turns inward.
         const across = placed.cell[0] - placed.cell[1];
-        const labelSide = across === 0 ? (placed.cell[0] >= GRID / 2 ? 1 : -1) : Math.sign(across);
+        const labelSide = placed.pose.kind === "sit" ? 1 : across === 0 ? (placed.cell[0] >= GRID / 2 ? 1 : -1) : Math.sign(across);
         labels.push(`<text class="hm-label" x="${num(head[0] + labelSide * 4.8 * u)}" y="${num(head[1] + 3 * u)}"${labelSide < 0 ? ' text-anchor="end"' : ""}>${escapeXml(placed.person.name)}</text>`);
 
         let loose = 0;
@@ -201,10 +230,11 @@ export function sceneSvg(scene: Scene, layout: SceneLayout = layoutScene(scene))
             const pieceIndex = layout.actionAt.get(line.id) ?? null;
             if (pieceIndex !== null) {
                 const piece = layout.pieces[pieceIndex];
-                const [px, py] = centreOf(piece.cell);
+                const placed = piecePlacement(piece, layout);
+                const [px, py] = placed.centre;
                 const count = perPiece.get(pieceIndex) ?? 0;
                 perPiece.set(pieceIndex, count + 1);
-                const base = iso([px, py, piece.def.height + (piece.known ? 0.5 : LABEL_LIFT)], projection);
+                const base = iso([px, py, placed.top + (piece.known ? 0.5 : LABEL_LIFT)], projection);
                 specs.push({ kind: "does", line, label, at: [base[0] + count * (radius * 2 + 4), base[1] - 9 * u], from: base, fixed: false });
                 return;
             }

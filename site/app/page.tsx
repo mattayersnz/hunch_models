@@ -8,13 +8,13 @@ const exampleModel = readModel({
     scenes: [{
         name: "First hour",
         emoji: "☕",
-        pieces: ["desk", "chair"],
+        pieces: ["desk", "chair", "laptop", "cup"],
         people: [{
             name: "Alex",
             about: "works from home",
             does: [
-                "sits down at the desk before checking messages",
-                "writes down one priority at the desk before everyone else weighs in",
+                "makes coffee before opening the laptop",
+                "writes down one priority at the desk",
             ],
             thinks: [
                 { text: "If I check messages now, I will lose the morning", marks: ["hunch"] },
