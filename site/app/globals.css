@@ -77,13 +77,17 @@ h3 {
 }
 
 .hero {
-    min-height: min(880px, 94vh);
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(390px, .8fr);
+    align-items: start;
+    gap: clamp(48px, 7vw, 92px);
     padding: clamp(80px, 12vh, 140px) 0 96px;
 }
 
 .heroCopy {
     position: relative;
     z-index: 1;
+    padding-top: 34px;
 }
 
 .heroIntro {
@@ -109,23 +113,13 @@ h3 {
 }
 
 .appStoreLink {
-    display: inline-grid;
-    grid-template-columns: auto auto auto;
-    align-items: center;
-    gap: 13px;
-    min-width: 226px;
-    padding: 13px 15px;
-    border: 1px solid #33332f;
-    border-radius: 14px;
-    background: var(--text);
-    color: #111;
-    text-decoration: none;
-    transition: transform 160ms ease, background 160ms ease;
+    display: inline-flex;
+    opacity: .76;
+    transition: opacity 160ms ease;
 }
 
 .appStoreLink:hover {
-    transform: translateY(-2px);
-    background: white;
+    opacity: 1;
 }
 
 .appStoreLink:focus-visible {
@@ -133,153 +127,42 @@ h3 {
     outline-offset: 4px;
 }
 
-.appStoreLink small,
-.appStoreLink strong {
+.appStoreLink img {
     display: block;
+    width: 120px;
+    height: 40px;
 }
 
-.appStoreLink small {
-    font-size: 10px;
-    line-height: 1.1;
+.modelExample > .eyebrow {
+    margin: 0 0 18px;
 }
 
-.appStoreLink strong {
-    font-size: 19px;
-    font-weight: 630;
-    line-height: 1.2;
+.heroModel {
+    min-height: 0;
+    background: transparent;
 }
 
-.storeMark {
-    display: grid;
-    width: 31px;
-    height: 31px;
-    place-items: center;
-    border: 1px solid #252525;
-    border-radius: 8px;
-    color: #111;
-    font: 650 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+.heroModel .hm-page {
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
-.linkArrow {
-    margin-left: auto;
-    font-size: 16px;
+.heroModel .hm-head {
+    margin-bottom: 24px;
 }
 
-.modelSketch {
-    position: relative;
-    width: min(470px, 42vw);
-    height: 330px;
-    margin: -112px 0 0 auto;
-    border: 1px solid var(--line);
-    border-radius: 22px;
-    background:
-        linear-gradient(135deg, transparent 49.75%, #242422 50%, transparent 50.25%) 0 0 / 42px 42px,
-        linear-gradient(45deg, transparent 49.75%, #20201e 50%, transparent 50.25%) 0 0 / 42px 42px,
-        var(--surface);
-    box-shadow: 0 28px 80px rgba(0, 0, 0, .32);
+.heroModel .hm-premise {
+    font-size: 15px;
 }
 
-.sketchLabel {
-    position: absolute;
-    top: 20px;
-    left: 22px;
-    color: var(--quiet);
-    font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    letter-spacing: .1em;
-    text-transform: uppercase;
+.heroModel .hm-card {
+    padding-right: 8px;
+    padding-left: 8px;
 }
 
-.scene {
-    position: absolute;
-    inset: 66px 25px 27px;
-    border: 1px solid #30302d;
-    border-radius: 14px;
-    background: rgba(11, 11, 11, .76);
-}
-
-.person {
-    position: absolute;
-    bottom: 34px;
-    width: 34px;
-    height: 62px;
-    border-radius: 18px 18px 7px 7px;
-    background: #e7e6df;
-}
-
-.person::before {
-    position: absolute;
-    top: -17px;
-    left: 6px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: inherit;
-    content: "";
-}
-
-.personOne {
-    left: 28%;
-}
-
-.personTwo {
-    right: 28%;
-    background: var(--accent);
-}
-
-.thought {
-    position: absolute;
-    padding: 7px 10px;
-    border: 1px solid #3b3b37;
-    border-radius: 8px;
-    background: var(--surface-raised);
-    color: #bdbcb7;
-    font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.thoughtOne {
-    top: 27px;
-    left: 11%;
-}
-
-.thoughtTwo {
-    top: 62px;
-    right: 8%;
-}
-
-.response {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    min-width: 122px;
-    padding: 9px 11px;
-    border: 1px solid #3a3a36;
-    border-radius: 9px;
-    background: #20201e;
-    color: #c8c7c1;
-    font-size: 11px;
-    box-shadow: 0 12px 26px rgba(0, 0, 0, .34);
-}
-
-.response b {
-    color: var(--text);
-    font-size: 12px;
-}
-
-.responseOne {
-    right: -24px;
-    bottom: 86px;
-}
-
-.responseTwo {
-    right: 20px;
-    bottom: 38px;
-}
-
-.responseThree {
-    left: -25px;
-    bottom: 16px;
+.heroModel .hm-legend {
+    grid-template-columns: 1fr;
 }
 
 .why,
@@ -373,11 +256,6 @@ h3 {
     font-size: 1.1rem;
 }
 
-.closingLink {
-    flex: 0 0 auto;
-    margin-bottom: 6px;
-}
-
 footer {
     display: flex;
     justify-content: space-between;
@@ -389,15 +267,19 @@ footer {
     text-transform: uppercase;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 960px) {
     .hero {
-        min-height: auto;
+        grid-template-columns: 1fr;
         padding-bottom: 80px;
     }
 
-    .modelSketch {
-        width: calc(100% - 18px);
-        margin: 72px 0 0;
+    .heroCopy {
+        padding-top: 0;
+    }
+
+    .modelExample {
+        width: min(720px, 100%);
+        margin: 34px auto 0;
     }
 
     .why,
@@ -450,23 +332,6 @@ footer {
 
     .heroActions p {
         max-width: none;
-    }
-
-    .modelSketch {
-        width: calc(100% - 8px);
-        height: 300px;
-    }
-
-    .thoughtTwo {
-        right: 3%;
-    }
-
-    .responseOne {
-        right: -10px;
-    }
-
-    .responseThree {
-        left: -10px;
     }
 
     .why,
