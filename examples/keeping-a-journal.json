@@ -1,0 +1,34 @@
+{
+  "title": "Keeping a journal going",
+  "premise": "People stop journalling because nothing they wrote ever comes back to them.",
+  "scenes": [
+    {
+      "name": "Early morning",
+      "emoji": "☕",
+      "pieces": ["chair", "book", "cup", "lamp"],
+      "people": [
+        {
+          "name": "Sam",
+          "about": "34, writes most mornings",
+          "does": ["writes a page in his journal before work", "makes a coffee first"],
+          "thinks": [
+            "I wrote about this last spring, I think",
+            { "text": "Writing it down is enough, I don't need to reread it", "marks": ["unsure"] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Three weeks later",
+      "emoji": "📓",
+      "pieces": ["bed", "phone", "book"],
+      "people": [
+        {
+          "name": "Sam",
+          "does": [{ "text": "opens his phone instead of the book", "marks": ["hunch"] }],
+          "thinks": ["I've missed too many days to pick it up again"]
+        }
+      ]
+    }
+  ]
+}

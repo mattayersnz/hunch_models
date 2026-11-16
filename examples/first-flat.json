@@ -1,0 +1,43 @@
+{
+  "title": "Finding a first flat",
+  "premise": "Young renters give up before they ever talk to a landlord.",
+  "scenes": [
+    {
+      "name": "Sunday evening at home",
+      "emoji": "🛋",
+      "pieces": ["couch", "phone", "lamp", "plant"],
+      "people": [
+        {
+          "name": "Mia",
+          "about": "27, renting with two friends",
+          "does": [
+            "scrolls listings on her phone",
+            { "text": "saves six, messages none", "marks": ["unsure"] }
+          ],
+          "thinks": [
+            { "text": "They'll want references I don't have", "marks": ["hunch"] },
+            "Everything good goes in an hour"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The viewing",
+      "emoji": "🚪",
+      "pieces": ["door", "letter", "car"],
+      "people": [
+        {
+          "name": "Mia",
+          "does": ["drives over after work", "fills in the form at the door"],
+          "thinks": [{ "text": "Twenty other people are applying for this", "marks": ["unsure"] }]
+        },
+        {
+          "name": "Agent",
+          "about": "property manager",
+          "does": ["hands out application forms"],
+          "thinks": ["I need someone who will pay on time"]
+        }
+      ]
+    }
+  ]
+}

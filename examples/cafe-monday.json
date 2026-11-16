@@ -1,0 +1,26 @@
+{
+  "title": "A café owner's Monday",
+  "premise": "Small café owners do their books on paper because software feels like it is judging them.",
+  "scenes": [
+    {
+      "name": "After close",
+      "emoji": "🧾",
+      "pieces": ["counter", "coins", "letter", "laptop", "shelf"],
+      "people": [
+        {
+          "name": "Ana",
+          "about": "runs a twelve-seat café",
+          "does": [
+            "counts the cash from the till",
+            "writes totals on the back of a bill",
+            { "text": "leaves the laptop shut", "marks": ["unsure"] }
+          ],
+          "thinks": [
+            { "text": "If I open the accounts I'll find out we're losing money", "marks": ["hunch"] },
+            "I'll do it properly at the end of the month"
+          ]
+        }
+      ]
+    }
+  ]
+}

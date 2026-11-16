@@ -1,0 +1,26 @@
+{
+  "title": "Three in the morning",
+  "premise": "New parents search for reassurance, not information.",
+  "scenes": [
+    {
+      "name": "The night feed",
+      "emoji": "🌙",
+      "pieces": ["bed", "phone", "lamp", "cup"],
+      "people": [
+        {
+          "name": "Jordan",
+          "about": "first child, six weeks old",
+          "does": [
+            "feeds the baby in the dark",
+            { "text": "searches 'is it normal' on the phone", "marks": ["unsure"] }
+          ],
+          "thinks": [
+            "Everyone else seems to know what they're doing",
+            { "text": "I don't want an answer, I want someone to say it's fine", "marks": ["hunch"] },
+            "I should sleep"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "title": "Deciding what to build next",
+  "premise": "Small teams decide by whoever speaks last in the meeting, not by what users said.",
+  "scenes": [
+    {
+      "name": "Planning meeting",
+      "emoji": "🗂",
+      "pieces": ["table", "laptop", "whiteboard", "chair", "cup"],
+      "people": [
+        {
+          "name": "Priya",
+          "about": "product lead",
+          "does": ["shares the interview notes on her laptop"],
+          "thinks": [{ "text": "Nobody has read these", "marks": ["unsure"] }]
+        },
+        {
+          "name": "Tom",
+          "about": "engineer",
+          "does": ["sketches an idea on the whiteboard"],
+          "thinks": ["This one is quick to build"]
+        },
+        {
+          "name": "Lee",
+          "about": "founder",
+          "does": [{ "text": "decides at the end of the hour", "marks": ["hunch"] }],
+          "thinks": ["We need something to show investors"]
+        }
+      ]
+    },
+    {
+      "name": "Two weeks later",
+      "emoji": "🖥",
+      "pieces": ["desk", "screen", "phone"],
+      "people": [
+        {
+          "name": "Priya",
+          "does": ["reads support emails on the screen"],
+          "thinks": ["The thing users asked for still isn't built"]
+        }
+      ]
+    }
+  ]
+}
