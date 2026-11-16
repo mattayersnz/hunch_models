@@ -47,7 +47,6 @@ export default function Home() {
                     <div className="heroActions">
                         <div className="heroDownload">
                             <AppStoreLink />
-                            <p>Hunch is available for iPhone and Mac.</p>
                         </div>
                         <nav className="heroLinks" aria-label="Hunch models">
                             <a className="agentLink" href="/agents">Create with any agent</a>
