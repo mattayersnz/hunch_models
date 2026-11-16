@@ -25,7 +25,12 @@ npm install        # TypeScript and Node types, for checking only
 npm run build      # examples/*.json → examples/out/*.html, dark and light
 npm test
 npm run check      # tsc
+npm run bundle     # the renderer as one script, for Hunch's offline preview
 ```
+
+`npm run bundle` writes `../hunch/hunch/Resources/model-renderer.js` when the Hunch repo
+sits beside this one. Hunch's preview runs that file, so re-bundle whenever the renderer
+or the kit changes; Hunch's `test-models.sh` checks its ids against `packages/model`.
 
 ## How it fits together
 
