@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata = {
-    title: "Hunch models — a humble start to a conversation",
-    description: "Put an idea out there as a small model of people, places, actions and thoughts, then invite others to say how it fits their world.",
+    title: "Hunch models — make ideas concrete enough to discuss",
+    description: "Turn an abstract idea into scenes people can respond to, revealing its assumptions and showing what matches, differs or is missing.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

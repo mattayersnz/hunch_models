@@ -32,18 +32,18 @@ const rendererCss = `${THEME_CSS}${PAGE_CSS.replace("body{", ".hm{")}`;
 const steps = [
     {
         number: "01",
-        title: "Start with a hunch",
-        body: "Begin with an idea you think may be true about how life works for people. It does not need to be finished or certain.",
+        title: "Reveal the assumptions",
+        body: "Putting the people, setting, actions, and thoughts into scenes makes the assumptions behind an idea visible.",
     },
     {
         number: "02",
-        title: "Make the idea concrete",
-        body: "Create a few scenes in Hunch, or ask any agent that connects over MCP to make them from Markdown. Show the people, setting, actions, and thoughts behind the idea.",
+        title: "Get specific feedback",
+        body: "People respond to the individual parts that resonate or differ, instead of judging the whole idea with a simple yes or no.",
     },
     {
         number: "03",
-        title: "Start the conversation",
-        body: "Publish the hunch model as a link. People can say what resonates, what differs, and what their own situation adds. Each response stays connected to the part it is about.",
+        title: "Learn from what comes back",
+        body: "Every response stays connected to the exact part it is about, making it clear what holds, what needs changing, and what the model is missing.",
     },
 ];
 
@@ -62,12 +62,12 @@ export default function Home() {
             <section className="hero" aria-labelledby="hero-title">
                 <div className="heroCopy">
                     <p className="eyebrow">Hunch models</p>
-                    <h1 id="hero-title">A hunch is a humble start to a conversation.</h1>
+                    <h1 id="hero-title">A hunch model shows how an idea might play out in real life.</h1>
                     <p className="heroIntro">
-                        A hunch model puts an idea out there without pretending it is
-                        finished. It shows the idea in a few real-life scenes—who is there,
-                        what they do, and what they think—so other people can respond from
-                        their own experience.
+                        It turns an abstract hunch into a few small scenes: the people
+                        involved, the situation they are in, what they do, and what they
+                        think. Share it, and people can respond to the specific parts that
+                        match—or do not match—their own experience.
                     </p>
                     <div className="heroActions">
                         <div className="heroDownload">
@@ -90,14 +90,14 @@ export default function Home() {
             </section>
 
             <section className="why" aria-labelledby="why-title">
-                <p className="eyebrow">The core idea</p>
+                <p className="eyebrow">What it is</p>
                 <div>
-                    <h2 id="why-title">Put an idea out there in a form people can respond to.</h2>
+                    <h2 id="why-title">A concrete model of an idea, made to be discussed.</h2>
                     <p>
-                        A hunch model is not a polished answer. It is a small, concrete
-                        picture of how someone thinks things go for people: who is involved,
-                        where they are, what they do, and what they think. It invites a
-                        conversation around one useful question:
+                        Each scene uses simple visual pieces and plain-language lines to
+                        show a situation and the people in it. The model is deliberately
+                        small and provisional: a humble start to a conversation, not a
+                        finished answer. It asks one practical question:
                         <em> is this how it is for you?</em>
                     </p>
                 </div>
@@ -105,8 +105,8 @@ export default function Home() {
 
             <section className="process" aria-labelledby="process-title">
                 <div className="sectionHeading">
-                    <p className="eyebrow">How it works</p>
-                    <h2 id="process-title">From an idea to a shared hunch</h2>
+                    <p className="eyebrow">Why it is useful</p>
+                    <h2 id="process-title">Make an idea clear enough to learn from.</h2>
                 </div>
                 <ol className="steps">
                     {steps.map((step) => (
@@ -121,11 +121,11 @@ export default function Home() {
 
             <section className="closing" aria-labelledby="closing-title">
                 <div>
-                    <p className="eyebrow">Make a hunch model</p>
-                    <h2 id="closing-title">Put an idea out there and see what comes back.</h2>
+                    <p className="eyebrow">Create one</p>
+                    <h2 id="closing-title">Turn a hunch into something people can actually respond to.</h2>
                     <p>
-                        Make one in Hunch, or connect any MCP-capable agent to create and
-                        publish one from Markdown.
+                        Make a model in Hunch on iPhone or Mac, or ask any MCP-capable agent
+                        to create and publish one from Markdown.
                     </p>
                 </div>
             </section>
