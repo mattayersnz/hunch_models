@@ -50,7 +50,7 @@ h3 {
 h1 {
     max-width: 11.5ch;
     margin-bottom: 28px;
-    font-size: clamp(3.6rem, 6.4vw, 6.15rem);
+    font-size: clamp(3.5rem, 5.5vw, 5.25rem);
     font-weight: 570;
     line-height: .96;
 }
@@ -80,9 +80,9 @@ h3 {
 .hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(480px, .88fr);
-    align-items: center;
-    gap: clamp(56px, 6vw, 92px);
-    padding: clamp(72px, 9vw, 116px) 0 clamp(96px, 10vw, 132px);
+    align-items: start;
+    gap: clamp(48px, 5vw, 76px);
+    padding: clamp(64px, 7vw, 92px) 0 clamp(88px, 9vw, 120px);
 }
 
 .heroCopy {
@@ -296,7 +296,7 @@ footer {
 
     h1 {
         max-width: 10.5ch;
-        font-size: clamp(4rem, 10vw, 6.5rem);
+        font-size: clamp(3.8rem, 9vw, 5.75rem);
     }
 }
 
