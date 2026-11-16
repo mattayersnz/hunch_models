@@ -1,7 +1,13 @@
-// End-to-end check of the site against local Supabase, driving the API the way
-// Hunch will. Needs `supabase start` and the site running (npm run dev).
+// End-to-end check of the site, driving the API the way Hunch will.
 //
+// Locally (`supabase start`, `npm run dev`), sign-in codes are read from Mailpit:
 //   node scripts/smoke.ts [site-url] [mailpit-url]
+//
+// Against a deployed site there is no inbox to read, so set SUPABASE_URL and
+// SUPABASE_SERVICE_ROLE_KEY. Then one real code is emailed to Resend's test inbox
+// (proving SMTP works), each test owner's code comes from the auth admin API, and
+// every user the run made is deleted at the end, taking their models with them.
+//   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… SUPABASE_ANON_KEY=… node scripts/smoke.ts https://hunch.tech
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,6 +16,10 @@ import { randomBytes } from "node:crypto";
 const SITE = process.argv[2] ?? "http://127.0.0.1:4620";
 const MAIL = process.argv[3] ?? "http://127.0.0.1:55324";
 const SUPABASE = process.env.SUPABASE_URL ?? "http://127.0.0.1:55321";
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+/** Deployed: codes come from the admin API, and the run cleans up after itself. */
+const ADMIN_MODE = Boolean(SERVICE_KEY) && !SITE.startsWith("http://127.0.0.1") && !SITE.startsWith("http://localhost");
+const madeUsers: string[] = [];
 
 interface Session {
     access_token: string;
@@ -70,11 +80,37 @@ async function codeFor(email: string): Promise<string> {
     throw new Error(`no code arrived for ${email}`);
 }
 
+async function admin(method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
+    const response = await fetch(`${SUPABASE}/auth/v1/admin/${path}`, {
+        method,
+        headers: { apikey: SERVICE_KEY!, ...(SERVICE_KEY!.startsWith("ey") ? { authorization: `Bearer ${SERVICE_KEY}` } : {}), "content-type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`admin ${path}: ${response.status} ${text}`);
+    return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+}
+
+/** A code for this address without sending email: make the user, then ask for a magic link's OTP. */
+async function adminCodeFor(email: string): Promise<string> {
+    const user = await admin("POST", "users", { email, email_confirm: true });
+    madeUsers.push(String(user.id));
+    const link = await admin("POST", "generate_link", { type: "magiclink", email });
+    const properties = (link.properties ?? link) as Record<string, unknown>;
+    return String(properties.email_otp);
+}
+
 async function signIn(): Promise<string> {
-    const email = `owner-${randomBytes(4).toString("hex")}@example.test`;
-    const sent = await call("POST", "/api/auth/code", { email });
-    assert.equal(sent.status, 200, sent.text);
-    const verified = await call("POST", "/api/auth/verify", { email, code: await codeFor(email) });
+    const email = `smoke-${randomBytes(4).toString("hex")}@example.test`;
+    let code: string;
+    if (ADMIN_MODE) {
+        code = await adminCodeFor(email);
+    } else {
+        const sent = await call("POST", "/api/auth/code", { email });
+        assert.equal(sent.status, 200, sent.text);
+        code = await codeFor(email);
+    }
+    const verified = await call("POST", "/api/auth/verify", { email, code });
     assert.equal(verified.status, 200, verified.text);
     return (verified.json as unknown as Session).access_token;
 }
@@ -84,8 +120,19 @@ const other = randomBytes(12).toString("hex");
 
 // MARK: - Signing in and publishing
 
+if (ADMIN_MODE) {
+    // One real email, to Resend's test inbox: Supabase only accepts this if SMTP works.
+    const delivered = "delivered@resend.dev";
+    const sent = await call("POST", "/api/auth/code", { email: delivered });
+    assert.equal(sent.status, 200, `sending a code failed, so SMTP is not working: ${sent.text}`);
+    const users = (await admin("GET", "users?per_page=200")) as { users?: { id: string; email: string }[] };
+    const made = users.users?.find((user) => user.email === delivered);
+    if (made) madeUsers.push(made.id);
+    step("a sign-in code is emailed through the configured SMTP");
+}
+
 const token = await signIn();
-step("an owner signs in with an emailed code");
+step("an owner signs in with a code");
 
 assert.equal((await call("POST", "/api/auth/verify", { email: "nobody@example.test", code: "000000" })).status, 401);
 step("a wrong code is refused");
@@ -219,5 +266,12 @@ if (anonKey) {
 assert.equal((await call("DELETE", `/api/models/${published.slug}`, undefined, token)).status, 200);
 assert.equal((await call("GET", `/m/${published.slug}`)).status, 404);
 step("unpublishing removes the page");
+
+if (madeUsers.length) {
+    for (const id of madeUsers) await admin("DELETE", `users/${id}`);
+    const left = (await admin("GET", "users?per_page=200")) as { users?: { id: string }[] };
+    assert.ok(!left.users?.some((user) => madeUsers.includes(user.id)), "test users remain");
+    step(`the run's ${madeUsers.length} users, and everything they published, are deleted`);
+}
 
 console.log(`# ${passed} passed`);
