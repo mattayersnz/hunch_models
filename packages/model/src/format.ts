@@ -8,6 +8,8 @@
 // think. That is the whole vocabulary, and it is what keeps every model readable by
 // someone who has never seen one before.
 
+import type { PieceLook } from "@hunch/kit";
+
 // MARK: - The document
 
 /** Why the author wants a response to one line in particular. */
@@ -38,6 +40,8 @@ export interface Scene {
     people: Person[];
     /** Kit names: "phone", "couch". An unknown name still draws, as a labelled block. */
     pieces: string[];
+    /** Optional generic appearances, keyed by the semantic names in `pieces`. */
+    pieceLooks?: Partial<Record<string, PieceLook>>;
 }
 
 export interface HunchModel {
@@ -89,6 +93,7 @@ export interface SceneDraft {
     emoji?: string;
     people?: PersonDraft[];
     pieces?: string[];
+    pieceLooks?: Partial<Record<string, PieceLook>>;
 }
 
 export interface ModelDraft {

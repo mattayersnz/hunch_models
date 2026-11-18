@@ -39,8 +39,12 @@ These need Node 22.18+ and Supabase CLI 2.117+; on Matt's Mac that is
   run Hunch's `scripts/test-models.sh`. The pinned ids in `tests/model.test.ts` must not move.
 - **`readModel` is the only way in**, recomputes every id, and lets a bad value cost only
   itself.
-- **Layout is deterministic and pieces are standard.** Add props to `PIECES` in
-  `packages/kit/src/pieces.ts`; unknown names draw as labelled crates. Re-bundle for Hunch.
+- **Layout is deterministic and pieces use one grammar.** Add dedicated props to `PIECES`
+  and constrained generic families to `GENERIC_PIECES` in `packages/kit/src/pieces.ts`;
+  ambiguous names draw as labelled crates. Re-bundle for Hunch.
+- **People are kit objects, not portraits.** Their fitted peg geometry and tiny
+  visible-plane face live in `pieces.ts`. People and props share one neutral four-tone
+  material; people have no inferred appearance or hair treatment.
 - **The database is reachable only through the site's route handlers.** RLS on, no
   policies, no privileges for `anon`/`authenticated`; routes use the service role and check
   ownership. A missing or foreign owner resource is always 404.

@@ -18,6 +18,7 @@ import {
     type Person,
     type Scene,
 } from "./format.ts";
+import { isPieceLook, type PieceLook } from "@hunch/kit";
 import { Occurrences, lineId, normaliseKey, personId, sceneId } from "./ids.ts";
 
 export interface ReadResult {
@@ -121,6 +122,17 @@ function readScene(value: unknown, occurrences: Occurrences, where: string, prob
         return null;
     }
     const people = new Occurrences();
+    const pieces = capped(
+        [...new Set(
+            listOf(value.pieces, `${where}.pieces`, problems)
+                .map((entry, index) => cleanText(entry, LIMITS.pieceName, `${where}.pieces[${index}]`, problems))
+                .filter((piece): piece is string => piece !== null)
+                .map((piece) => piece.toLowerCase()),
+        )],
+        LIMITS.pieces,
+        `${where}.pieces`,
+        problems,
+    );
     const scene: Scene = {
         id: sceneId(name, occurrences.next(normaliseKey(name))),
         name,
@@ -132,18 +144,26 @@ function readScene(value: unknown, occurrences: Occurrences, where: string, prob
             `${where}.people`,
             problems,
         ),
-        pieces: capped(
-            [...new Set(
-                listOf(value.pieces, `${where}.pieces`, problems)
-                    .map((entry, index) => cleanText(entry, LIMITS.pieceName, `${where}.pieces[${index}]`, problems))
-                    .filter((piece): piece is string => piece !== null)
-                    .map((piece) => piece.toLowerCase()),
-            )],
-            LIMITS.pieces,
-            `${where}.pieces`,
-            problems,
-        ),
+        pieces,
     };
+    if (value.pieceLooks !== undefined) {
+        if (!isBag(value.pieceLooks)) {
+            problems.push(`${where}.pieceLooks: expected an object`);
+        } else {
+            const lookEntries: [string, PieceLook][] = [];
+            for (const [rawName, rawLook] of Object.entries(value.pieceLooks)) {
+                const piece = cleanText(rawName, LIMITS.pieceName, `${where}.pieceLooks key`, problems)?.toLowerCase();
+                if (piece === undefined || !pieces.includes(piece)) {
+                    problems.push(`${where}.pieceLooks.${rawName}: dropped, no matching piece`);
+                } else if (!isPieceLook(rawLook)) {
+                    problems.push(`${where}.pieceLooks.${rawName}: dropped, unknown look`);
+                } else {
+                    lookEntries.push([piece, rawLook]);
+                }
+            }
+            if (lookEntries.length > 0) scene.pieceLooks = Object.fromEntries(lookEntries);
+        }
+    }
     const emoji = cleanText(value.emoji, 8, `${where}.emoji`, problems);
     if (emoji !== null) scene.emoji = emoji;
     return scene;

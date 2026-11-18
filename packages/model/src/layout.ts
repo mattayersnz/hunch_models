@@ -8,7 +8,7 @@
 // groups fill the near and far centre cells instead of marching out to the corners.
 // Props fill the cells behind them first, so people are never hidden by furniture.
 
-import { CELL, CRATE, pieceNamed, wordsFor, type Facing, type PieceDef, type Pose } from "@hunch/kit";
+import { CELL, pieceForName, seatedReach, wordsFor, type Facing, type PieceDef, type Pose, type Shape } from "@hunch/kit";
 import { normaliseKey } from "./ids.ts";
 import type { Person, Scene } from "./format.ts";
 
@@ -20,19 +20,36 @@ export type Cell = [col: number, row: number];
 /** A compact group around the centre, in the order a scene introduces its people. */
 const PEOPLE_CELLS: Cell[] = [[1, 2], [2, 1], [2, 2], [1, 1]];
 
-/** One of eight natural turns toward a point in the scene. */
+/** Air between a sitter's knees and a desk pulled up to them. */
+const KNEE_ROOM = 1;
+
+/** The smallest y any of a piece's shapes reaches: its edge nearest the cell behind. */
+function nearestY(shapes: Shape[]): number {
+    return Math.min(...shapes.map((shape) =>
+        shape.kind === "box" ? shape.plan.y : shape.kind === "poly" ? Math.min(...shape.ring.map(([, y]) => y)) : shape.cy - shape.r));
+}
+
+/**
+ * The turns that keep a standing figure's face in view: toward the viewer's left,
+ * straight at the viewer, and toward the viewer's right. The other five show a back or
+ * a side, and a block head seen side-on is a blank panel. A scene is about what people
+ * do and think, so the face wins over turning exactly toward someone: two people still
+ * face each other across the screen, each showing the face on that side.
+ */
+const FACE_TURNS: [Facing, number][] = [["east", 0], ["southEast", Math.PI / 4], ["south", Math.PI / 2]];
+
+/** The turn that keeps the face in view and comes nearest to facing a point. */
 function facingToward([col, row]: Cell, [targetCol, targetRow]: [number, number]): Facing {
-    const dx = Math.sign(targetCol - col);
-    const dy = Math.sign(targetRow - row);
-    if (dx === 0 && dy < 0) return "north";
-    if (dx > 0 && dy < 0) return "northEast";
-    if (dx > 0 && dy === 0) return "east";
-    if (dx > 0 && dy > 0) return "southEast";
-    if (dx === 0 && dy > 0) return "south";
-    if (dx < 0 && dy > 0) return "southWest";
-    if (dx < 0 && dy === 0) return "west";
-    if (dx < 0 && dy < 0) return "northWest";
-    return "south";
+    const dx = targetCol - col;
+    const dy = targetRow - row;
+    if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return "south";
+    const want = Math.atan2(dy, dx);
+    const gap = (angle: number): number => {
+        const turn = Math.abs(want - angle) % (2 * Math.PI);
+        return Math.min(turn, 2 * Math.PI - turn);
+    };
+    // First of equals wins, so the result is the same on every machine.
+    return FACE_TURNS.reduce((best, turn) => (gap(turn[1]) < gap(best[1]) - 1e-9 ? turn : best))[0];
 }
 
 export interface PlacedPiece {
@@ -44,6 +61,8 @@ export interface PlacedPiece {
     seatedBy: number | null;
     /** Small props can share a host cell by sitting in one of its surface slots. */
     surface: { host: number; at: [x: number, y: number, z: number] } | null;
+    /** Turned round to face the person in front of whom it was put, rather than the viewer. */
+    turned: boolean;
 }
 
 export interface PlacedPerson {
@@ -82,8 +101,8 @@ const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 export function layoutScene(scene: Scene): SceneLayout {
     const peopleCells = PEOPLE_CELLS.slice(0, scene.people.length);
     const pieces: PlacedPiece[] = scene.pieces.map((name) => {
-        const def = pieceNamed(name);
-        return { name, def: def ?? CRATE, known: def !== null, cell: [0, 0], seatedBy: null, surface: null };
+        const resolved = pieceForName(name, scene.pieceLooks?.[name]);
+        return { name, ...resolved, cell: [0, 0], seatedBy: null, surface: null, turned: false };
     });
 
     // People take seats in order while there are seats; the seat moves to them.
@@ -116,7 +135,10 @@ export function layoutScene(scene: Scene): SceneLayout {
         if (cell[1] >= GRID || peopleCells.some((taken) => sameCell(taken, cell))) continue;
         // Keep the logical cell reserved but pull the desk back within it: a whole
         // cell of air would make the sitter look beside the desk rather than at it.
-        pieces[desk].cell = [person.cell[0], person.cell[1] + 0.6];
+        // Never so far that the desk's nearest edge meets the sitter's knees.
+        const reach = person.pose.kind === "sit" ? seatedReach(person.pose.seat) : 0;
+        const clear = (reach + KNEE_ROOM - nearestY(pieces[desk].def.shapes)) / CELL;
+        pieces[desk].cell = [person.cell[0], person.cell[1] + Math.max(0.6, clear)];
         paired.add(desk);
         reservedCells.add(cell.join());
     }
@@ -145,6 +167,36 @@ export function layoutScene(scene: Scene): SceneLayout {
         }
     }
 
+    // What a sitter is doing is brought round in front of them, turned to face them, the
+    // way a desk is: someone who watches the tv faces the tv. Props otherwise fill the
+    // cells behind people, so without this a sitter, who always faces the viewer, sat
+    // with their back to it. The cell in front is beside them on screen rather than over
+    // them, so the piece hides nothing of the person. Only a whole free cell will do,
+    // and only for something that is not furniture in its own right.
+    const broughtUp = new Set<number>();
+    for (const [index, person] of people.entries()) {
+        if (person.seat === null) continue;
+        const front: Cell = [person.cell[0], person.cell[1] + 1];
+        if (front[1] >= GRID || peopleCells.some((taken) => sameCell(taken, front)) || reservedCells.has(front.join())) continue;
+        const target = scene.people[index].does
+            .map((line) => pieceForText(line.text, scene.pieces))
+            .find((at): at is number =>
+                at !== null &&
+                pieces[at].seatedBy === null &&
+                pieces[at].surface === null &&
+                pieces[at].def.seat === undefined &&
+                pieces[at].def.name !== "desk" &&
+                !paired.has(at) &&
+                !surfaced.has(at) &&
+                !broughtUp.has(at)
+            );
+        if (target === undefined) continue;
+        pieces[target].cell = front;
+        pieces[target].turned = true;
+        broughtUp.add(target);
+        reservedCells.add(front.join());
+    }
+
     // Everything else, back cells first; within a band, nearest the middle of the screen first.
     const free: Cell[] = [];
     for (let col = 0; col < GRID; col++) for (let row = 0; row < GRID; row++) free.push([col, row]);
@@ -153,7 +205,7 @@ export function layoutScene(scene: Scene): SceneLayout {
         .sort((a, b) => a[0] + a[1] - (b[0] + b[1]) || Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]) || a[0] - b[0]);
     let next = 0;
     for (const [index, piece] of pieces.entries()) {
-        if (piece.seatedBy === null && !paired.has(index) && !surfaced.has(index)) piece.cell = open[next++];
+        if (piece.seatedBy === null && !paired.has(index) && !surfaced.has(index) && !broughtUp.has(index)) piece.cell = open[next++];
     }
 
     const actionAt = new Map<string, number | null>();

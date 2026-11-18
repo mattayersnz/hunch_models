@@ -2,13 +2,23 @@
 
 ```ts
 interface HunchModel { version: 1; title: string; premise?: string; scenes: Scene[] }
-interface Scene      { id: string; name: string; emoji?: string; people: Person[]; pieces: string[] }
+interface Scene      { id: string; name: string; emoji?: string; people: Person[]; pieces: string[]; pieceLooks?: Record<string, PieceLook> }
 interface Person     { id: string; name: string; about?: string; does: ModelLine[]; thinks: ModelLine[] }
 interface ModelLine  { id: string; text: string; marks: ("unsure" | "hunch" | "focus")[] }
+type PieceLook       = "handheld" | "paper" | "container" | "appliance" | "display" | "seat" |
+                       "surface" | "storage" | "vehicle" | "plant" | "building" | "fixture"
 ```
 
 An author may omit every `id`: `readModel` always recomputes them, and ignores any it
 is handed.
+
+`pieces` always carries the author's semantic names. `pieceLooks` may give an unknown
+piece a generic kit appearance without changing that meaning; its keys must name entries
+in `pieces`, and an invalid key or look costs only itself. In Markdown, the same hint is
+written naturally: `:with: ticket machine as appliance, medicine as container`. A
+dedicated kit piece wins unless the author explicitly supplies a look. Without a hint,
+the renderer makes a cautious deterministic suggestion and otherwise uses the labelled
+crate.
 
 ## Limits
 

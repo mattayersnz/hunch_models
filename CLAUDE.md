@@ -128,17 +128,26 @@ scene. Limits live in `LIMITS` in format.ts and are mirrored in `ModelComposer.s
 
 ## The renderer and the kit
 
-**Standard pieces, never hand-drawn scenes.** Every model looks like every other, a
-stranger can read one in a minute, and every piece can take a response. A prop name the kit
-does not know draws as a labelled crate, so an author is never blocked and rendering never
-needs AI.
+**Standard pieces and constrained generic looks, never hand-drawn scenes.** Every model
+looks like every other, a stranger can read one in a minute, and every piece can take a
+response. A prop name the kit does not know takes a cautious generic look when its words
+are unambiguous, or draws as a labelled crate. `pieceLooks` can choose a generic family
+explicitly while `pieces` keeps the semantic name; Markdown spells that `ticket machine as
+appliance`. The renderer remains deterministic and never needs AI.
 
 **Layout is pure and deterministic** — the same scene lays out the same way in Hunch's
 preview, on the site and in a test. A scene is a 4 × 4 floor of 30-unit cells. People stand
 along the middle diagonal (`PEOPLE_CELLS`), side by side as the viewer sees them; props
 fill the cells behind them first so people are never hidden. The first seat in a scene is
-moved under the first person, who sits. An action is drawn at the piece its text names, by
-name or alias as a whole word; otherwise on the floor in front of the person. The floor and
+moved under the first person, who sits. Standing people turn toward each other only
+through the three turns that keep a face in view (east, southEast, south): a block head
+seen side-on is a blank panel. A sitter faces the viewer, so the piece their first action
+names is brought into the cell in front of them and turned to face them (`turned`), the
+way a desk is pulled up. An action is drawn at the piece its text names, by name or alias
+as a whole word; otherwise on the floor in front of the person, or beside them when
+something stands in front (`looseSpots`). Names avoid other figures, furniture and each
+other where a side allows, carry a halo, are cut at 16 characters in the drawing, and grow
+on a narrow card through the `hm-scene` container query. The floor and
 the fit are sized to the used cells (`boundsOf`, `fitWidth`), and `separate` lifts marks
 that would overlap.
 
@@ -146,11 +155,26 @@ that would overlap.
 can be selected or read aloud; every line and its marker share a `data-id`, which is how
 hover-linking and responding find each other.
 
+**People are block figures from the same kit.** `personShapes` uses a cube head wider
+than the body, a box torso, box arms and short box legs, with only lightly softened
+corners, shared neutral four-tone material and a tiny SVG face on the head's front plane; it supports standing, every
+turn and every seat. People have no inferred appearance or hair treatment. A face is drawn only when
+its plane turns toward the viewer. People, standard props and generic props use the same
+warm palette, softened default corners and outlines, so a person remains one object in the
+scene rather than an illustration placed over it. The accent colour remains reserved for
+hunch and unsure marks.
+
 **Adding a piece**: append a `PieceDef` to `PIECES` in pieces.ts — its solids inside one
 30 × 30 cell, listed back to front and bottom to top (that order is painter's order within
 a cell), its `height` (where a marker hangs), aliases, and `seat`/`front` if a person can
 sit on it. Then `npm run build`, look at it dark and light, and `npm run bundle` so Hunch's
 preview matches.
+
+Generic families live in `GENERIC_PIECES` in the same file and obey
+`pieceDefProblems`: one 30 × 30 cell, at most eight approved primitives, and no geometry
+above the cell's 30-unit height. Keep `PIECE_LOOKS`, Swift's `ModelPieceLook`, FORMAT.md
+and the Markdown protocol in step. Suggestions in `suggestedPieceLook` must be cautious:
+an ambiguous name is a labelled crate until the author or agent supplies `as <look>`.
 
 The look is adapted from the Anatomy skill (MIT; attributed in `iso.ts` and `LICENSE`):
 projection, extrusion, four-tone shading. Machine parts were deliberately not carried over.

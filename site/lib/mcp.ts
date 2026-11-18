@@ -2,7 +2,7 @@ import "server-only";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { PIECES, piecesOf, readModelMarkdown, type HunchModel } from "@hunch/model";
+import { PIECES, PIECE_LOOKS, piecesOf, readModelMarkdown, type HunchModel } from "@hunch/model";
 import { agentProtocol } from "./protocol";
 import { HttpError } from "./http";
 import { admin } from "./supabase";
@@ -81,13 +81,28 @@ export function createMcpServer(owner: McpOwner, siteURL: string): McpServer {
 
     server.registerResource("Hunch model pieces", "hunch://kit/pieces", {
         title: "Available isometric pieces",
-        description: "Known prop names and aliases. Unknown props still draw as labelled crates.",
+        description: "Known prop names and aliases. Unknown props still draw safely.",
         mimeType: "application/json",
     }, async (uri) => ({
         contents: [{
             uri: uri.href,
             mimeType: "application/json",
             text: JSON.stringify(PIECES.map(({ name, aliases }) => ({ name, aliases })), null, 2),
+        }],
+    }));
+
+    server.registerResource("Hunch generic piece looks", "hunch://kit/looks", {
+        title: "Generic isometric piece looks",
+        description: "Constrained appearances an agent may choose for props outside the standard kit.",
+        mimeType: "application/json",
+    }, async (uri) => ({
+        contents: [{
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify({
+                looks: PIECE_LOOKS,
+                hint: "Write ‘semantic name as look’, for example ‘ticket machine as appliance’.",
+            }, null, 2),
         }],
     }));
 

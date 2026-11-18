@@ -6,8 +6,8 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashParts, layoutScene, lineId, modelHtml, pieceForText, readModel, type HunchModel, type ModelDraft } from "../packages/model/src/index.ts";
-import { separate } from "../packages/model/src/render.ts";
-import { personShapes, pieceNamed, type Facing, type Vec2 } from "@hunch/kit";
+import { looseSpots, separate } from "../packages/model/src/render.ts";
+import { GENERIC_PIECES, PIECES, personFaceDetails, personShapes, pieceDefProblems, pieceNamed, type Facing, type Shape, type Vec2 } from "@hunch/kit";
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), "..", "examples");
 
@@ -108,6 +108,20 @@ test("control characters and newlines are flattened", () => {
     assert.equal(model.title, "a b c");
 });
 
+test("piece looks are additive, constrained and only name pieces in their scene", () => {
+    const { model, problems } = readModel({
+        title: "T",
+        scenes: [{
+            name: "S",
+            pieces: ["Ticket machine", "medicine", "plain"],
+            pieceLooks: { "TICKET MACHINE": "appliance", medicine: "container", plain: "sparkly", missing: "paper" },
+        }],
+    });
+    assert.ok(model);
+    assert.deepEqual(model.scenes[0].pieceLooks, { "ticket machine": "appliance", medicine: "container" });
+    assert.equal(problems.filter((problem) => problem.includes("pieceLooks")).length, 2);
+});
+
 // MARK: - Layout
 
 test("no two things share a cell, and a seat moves under its sitter", () => {
@@ -153,7 +167,70 @@ test("larger groups stay gathered around the centre and turn toward one another"
     const model = read({ title: "T", scenes: [{ name: "S", people: ["A", "B", "C", "D"].map((name) => ({ name })) }] });
     const people = layoutScene(model.scenes[0]).people;
     assert.deepEqual(people.map(({ cell }) => cell), [[1, 2], [2, 1], [2, 2], [1, 1]]);
-    assert.deepEqual(people.map(({ pose }) => pose.facing), ["northEast", "southWest", "northWest", "southEast"]);
+    // Each turns as nearly toward the others as it can while keeping its face in view.
+    assert.deepEqual(people.map(({ pose }) => pose.facing), ["east", "south", "east", "southEast"]);
+});
+
+test("every standing figure shows its face, whatever the size of the group", () => {
+    for (let count = 1; count <= 4; count++) {
+        const model = read({ title: "T", scenes: [{ name: "S", people: ["A", "B", "C", "D"].slice(0, count).map((name) => ({ name })) }] });
+        for (const placed of layoutScene(model.scenes[0]).people) {
+            assert.ok(personFaceDetails(placed.pose), `${count} people: ${placed.person.name} faces ${placed.pose.facing}`);
+        }
+    }
+});
+
+test("what a sitter uses is brought in front of them and turned to face them", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", pieces: ["couch", "tv", "lamp"], people: [{ name: "A", does: ["watches the tv"] }] }] });
+    const layout = layoutScene(model.scenes[0]);
+    const sitter = layout.people[0];
+    const tv = layout.pieces.find((piece) => piece.def.name === "screen");
+    const lamp = layout.pieces.find((piece) => piece.def.name === "lamp");
+    assert.ok(tv && lamp);
+    assert.deepEqual(tv.cell, [sitter.cell[0], sitter.cell[1] + 1]);
+    assert.equal(tv.turned, true);
+    assert.equal(lamp.turned, false);
+});
+
+test("a sitter's own furniture and a standing person's props stay where layout puts them", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", pieces: ["chair", "desk", "tv"], people: [{ name: "A", does: ["watches the tv"] }, { name: "B", does: ["turns off the tv"] }] }] });
+    const layout = layoutScene(model.scenes[0]);
+    const tv = layout.pieces.find((piece) => piece.def.name === "screen");
+    assert.ok(tv);
+    // The desk already stands in front of the sitter, so the tv is not brought round.
+    assert.equal(tv.turned, false);
+});
+
+test("an action that names nothing never lands on a piece", () => {
+    const scenes = [
+        { pieces: ["chair", "desk"], people: [{ name: "A", does: ["thinks hard", "sighs", "waits", "stretches"] }] },
+        { pieces: ["couch", "tv"], people: [{ name: "A", does: ["watches the tv", "sighs"] }] },
+        { pieces: ["chair"], people: [{ name: "A", does: ["sighs"] }] },
+    ];
+    for (const scene of scenes) {
+        const model = read({ title: "T", scenes: [{ name: "S", ...scene }] });
+        const layout = layoutScene(model.scenes[0]);
+        const spots = looseSpots(layout, 0);
+        assert.ok(spots.length > 0);
+        for (const piece of layout.pieces) {
+            if (piece.seatedBy !== null || piece.surface !== null) continue;
+            for (const shape of piece.def.shapes) {
+                const { x, y } = extent(shape);
+                const [ox, oy] = [piece.cell[0] * 30, piece.cell[1] * 30];
+                for (const [sx, sy] of spots) {
+                    const inside = sx > ox + x[0] && sx < ox + x[1] && sy > oy + y[0] && sy < oy + y[1];
+                    assert.ok(!inside, `${scene.pieces.join(", ")}: an action sits on the ${piece.def.name}`);
+                }
+            }
+        }
+    }
+});
+
+test("a long name is shortened in the drawing and whole in the list", () => {
+    const model = read({ title: "T", scenes: [{ name: "S", people: [{ name: "Alexandria-Rose Featherstonehaugh" }] }] });
+    const html = modelHtml(model);
+    assert.ok(html.includes(">Alexandria-Rose…</text>"));
+    assert.ok(html.includes("Alexandria-Rose Featherstonehaugh"));
 });
 
 test("a sitter faces the same way as the seat", () => {
@@ -175,7 +252,10 @@ test("a seated worker has the desk directly in front of them", () => {
     const person = layout.people[0];
     const desk = layout.pieces.find((piece) => piece.def.name === "desk");
     assert.ok(desk);
-    assert.deepEqual(desk.cell, [person.cell[0], person.cell[1] + 0.6]);
+    // Pulled up close, but only as close as the sitter's knees allow.
+    assert.equal(desk.cell[0], person.cell[0]);
+    const ahead = desk.cell[1] - person.cell[1];
+    assert.ok(ahead >= 0.6 && ahead < 0.75, `desk ${ahead} cells ahead`);
 });
 
 test("small work props sit on the desk instead of separate floor stands", () => {
@@ -191,26 +271,184 @@ test("small work props sit on the desk instead of separate floor stands", () => 
     }
 });
 
+test("generic looks keep semantic names and use deterministic kit geometry", () => {
+    const model = read({
+        title: "T",
+        scenes: [{
+            name: "S",
+            pieces: ["ticket machine", "medicine bottle", "mystery"],
+            pieceLooks: { "ticket machine": "display" },
+            people: [{ name: "A", does: ["checks the ticket machine"] }],
+        }],
+    });
+    const layout = layoutScene(model.scenes[0]);
+    assert.equal(layout.pieces[0].name, "ticket machine");
+    assert.equal(layout.pieces[0].def.name, "display");
+    assert.equal(layout.pieces[0].known, false);
+    assert.equal(layout.pieces[1].def.name, "container");
+    assert.equal(layout.pieces[2].def.name, "crate");
+    assert.equal(layout.actionAt.get(model.scenes[0].people[0].does[0].id), 0);
+});
+
+test("every standard and generic piece stays inside the construction grammar", () => {
+    for (const piece of [...PIECES, ...Object.values(GENERIC_PIECES)]) {
+        assert.deepEqual(pieceDefProblems(piece), [], piece.name);
+    }
+});
+
 test("the block figure supports all eight rotations", () => {
     const facings: Facing[] = ["north", "northEast", "east", "southEast", "south", "southWest", "west", "northWest"];
     const shapes = facings.map((facing) => JSON.stringify(personShapes({ kind: "stand", facing })));
     assert.equal(new Set(shapes).size, facings.length);
 });
 
-test("the torso hides the rear arm", () => {
+test("the block torso hides the rear arm", () => {
     const shapes = personShapes({ kind: "stand", facing: "south" });
-    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.h === 9.5);
-    const arms = shapes.flatMap((shape, at) => (shape.kind === "box" && shape.h === 7.5 ? [at] : []));
+    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.plan.w === 7.6 && shape.h === 8);
+    const arms = shapes.flatMap((shape, at) => (shape.kind === "box" && shape.plan.w === 2 ? [at] : []));
     assert.equal(arms.length, 2);
     assert.ok(arms[0] < torso && torso < arms[1]);
 });
 
+const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-9;
+const isLeg = (shape: Shape): shape is Extract<Shape, { kind: "box" }> => shape.kind === "box" && near(shape.plan.w, 3.6);
+
 test("seated legs stop behind the torso", () => {
     const shapes = personShapes({ kind: "sit", seat: { y: 11, z: 7, front: 22 }, facing: "south" });
-    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.plan.w === 8.6);
-    const legs = shapes.flatMap((shape, at) => (shape.kind === "box" && shape.plan.w === 2.8 ? [at] : []));
+    const torso = shapes.findIndex((shape) => shape.kind === "box" && shape.plan.w === 7.6 && shape.h === 7);
+    const legs = shapes.flatMap((shape, at) => (isLeg(shape) ? [at] : []));
     assert.equal(legs.length, 4);
     assert.ok(legs.every((leg) => leg < torso));
+});
+
+test("seated shins drop straight from their knees", () => {
+    const shapes = personShapes({ kind: "sit", seat: { y: 11, z: 7, front: 22 }, facing: "south" });
+    const legs = shapes.filter(isLeg);
+    const thighs = legs.filter((shape) => shape.z === 7).sort((a, b) => a.plan.x - b.plan.x);
+    const shins = legs.filter((shape) => shape.z === 0).sort((a, b) => a.plan.x - b.plan.x);
+    assert.equal(thighs.length, 2);
+    assert.equal(shins.length, 2);
+    for (let index = 0; index < 2; index++) {
+        assert.equal(shins[index].plan.x, thighs[index].plan.x);
+        assert.ok(near(shins[index].plan.y + shins[index].plan.d, thighs[index].plan.y + thighs[index].plan.d));
+        assert.equal(shins[index].h, thighs[index].z);
+    }
+});
+
+/** A shape's extent on the floor and in height, in its cell's coordinates. */
+function extent(shape: Shape): { x: [number, number]; y: [number, number]; z: [number, number] } {
+    const z: [number, number] = [shape.z, shape.z + shape.h];
+    if (shape.kind === "box") return { x: [shape.plan.x, shape.plan.x + shape.plan.w], y: [shape.plan.y, shape.plan.y + shape.plan.d], z };
+    if (shape.kind === "cyl") return { x: [shape.cx - shape.r, shape.cx + shape.r], y: [shape.cy - shape.r, shape.cy + shape.r], z };
+    const xs = shape.ring.map(([x]) => x);
+    const ys = shape.ring.map(([, y]) => y);
+    return { x: [Math.min(...xs), Math.max(...xs)], y: [Math.min(...ys), Math.max(...ys)], z };
+}
+
+const seats = [...PIECES, ...Object.values(GENERIC_PIECES)].filter((piece) => piece.seat);
+
+test("a seat's front is the true front of everything below its surface", () => {
+    for (const piece of seats) {
+        for (const shape of [...piece.shapes, ...(piece.front ?? [])]) {
+            if (shape.z >= piece.seat!.z) continue;
+            assert.ok(extent(shape).y[1] <= piece.seat!.front + 1e-9, `${piece.name}: a shape below the seat reaches past its front`);
+        }
+    }
+});
+
+test("seated shins hang in front of the seat and drop directly in front of the torso", () => {
+    for (const piece of seats) {
+        const seat = piece.seat!;
+        const shapes = personShapes({ kind: "sit", seat, facing: "south" });
+        const torso = shapes.find((shape): shape is Extract<Shape, { kind: "box" }> => shape.kind === "box" && shape.plan.w === 7.6);
+        const shins = shapes.filter(isLeg).filter((shape) => shape.z === 0);
+        assert.ok(torso, piece.name);
+        assert.equal(shins.length, 2, piece.name);
+        for (const shin of shins) {
+            assert.ok(near(shin.plan.y, torso.plan.y + torso.plan.d), piece.name);
+            assert.ok(shin.plan.y > seat.front, `${piece.name}: shins are sunk into the seat`);
+        }
+        for (const shape of shapes) {
+            const { x, y, z } = extent(shape);
+            assert.ok(x[0] >= 0 && y[0] >= 0 && x[1] <= 30 && y[1] <= 30 && z[1] <= 30, `${piece.name}: leaves its cell`);
+        }
+    }
+});
+
+test("a desk pulled up to a sitter never touches them", () => {
+    for (const piece of seats) {
+        const { model } = readModel({ title: "t", scenes: [{ name: "s", pieces: [piece.name, "desk"], people: [{ name: "Mia", does: ["works"] }] }] });
+        const layout = layoutScene(model!.scenes[0]);
+        const sitter = layout.people[0];
+        const desk = layout.pieces.find((placed) => placed.def.name === "desk");
+        assert.equal(sitter.pose.kind, "sit", piece.name);
+        assert.ok(desk, piece.name);
+        const world = (shape: Shape, [col, row]: [number, number]) => {
+            const { x, y, z } = extent(shape);
+            return { x: [x[0] + col * 30, x[1] + col * 30], y: [y[0] + row * 30, y[1] + row * 30], z };
+        };
+        const apart = (a: [number, number], b: [number, number]): boolean => a[1] <= b[0] || b[1] <= a[0];
+        for (const body of personShapes(sitter.pose).map((shape) => world(shape, sitter.cell))) {
+            for (const part of desk.def.shapes.map((shape) => world(shape, desk.cell))) {
+                assert.ok(apart(body.x as [number, number], part.x as [number, number]) || apart(body.y as [number, number], part.y as [number, number]) || apart(body.z, part.z), `${piece.name}: the desk touches its sitter`);
+            }
+        }
+    }
+});
+
+test("legs line up with the torso and carry its outline, standing and seated", () => {
+    for (const pose of [{ kind: "stand", facing: "south" }, { kind: "sit", seat: { y: 11, z: 7, front: 22 }, facing: "south" }] as const) {
+        const shapes = personShapes(pose);
+        const torso = shapes.find((shape): shape is Extract<Shape, { kind: "box" }> => shape.kind === "box" && shape.plan.w === 7.6);
+        const legs = shapes.filter(isLeg);
+        assert.ok(torso);
+        assert.ok(legs.length >= 2, pose.kind);
+        const xs = legs.map((leg) => leg.plan.x);
+        assert.ok(near(Math.min(...xs), torso.plan.x), pose.kind);
+        assert.ok(near(Math.max(...legs.map((leg) => leg.plan.x + leg.plan.w)), torso.plan.x + torso.plan.w), pose.kind);
+        assert.ok(legs.every((leg) => leg.style?.outline !== false), pose.kind);
+        assert.deepEqual(legs.map((leg) => leg.style), legs.map(() => torso.style), pose.kind);
+    }
+});
+
+test("neutral block parts overlap instead of floating apart", () => {
+    const shapes = personShapes({ kind: "stand", facing: "south" });
+    assert.ok(shapes.every((shape) => shape.style?.lit !== true));
+    const torso = shapes.find((shape) => shape.kind === "box" && shape.plan.w === 7.6);
+    const head = shapes.find((shape) => shape.kind === "box" && shape.plan.w === 10.5);
+    assert.ok(torso && head && torso.z + torso.h > head.z);
+    const html = modelHtml(read(base));
+    assert.ok(!html.includes("hm-person-outline"));
+    assert.ok(!html.includes("hm-hair-line"));
+});
+
+test("the block head is a cube wider than the torso", () => {
+    const shapes = personShapes({ kind: "stand", facing: "south" });
+    const head = shapes.find((shape): shape is Extract<Shape, { kind: "box" }> => shape.kind === "box" && shape.plan.w === 10.5);
+    assert.ok(head);
+    assert.equal(head.plan.d, head.plan.w);
+    assert.equal(head.h, head.plan.w);
+    assert.ok(head.plan.w > 7.6);
+});
+
+test("faces appear only on a visible plane", () => {
+    assert.ok(personFaceDetails({ kind: "stand", facing: "south" }));
+    assert.equal(personFaceDetails({ kind: "stand", facing: "north" }), null);
+});
+
+test("every block variant stays inside one cell in every direction", () => {
+    const facings: Facing[] = ["north", "northEast", "east", "southEast", "south", "southWest", "west", "northWest"];
+    for (const facing of facings) {
+        for (const shape of personShapes({ kind: "stand", facing })) {
+            assert.ok(shape.z >= 0 && shape.h > 0 && shape.z + shape.h <= 30, `${facing}: height`);
+            const points = shape.kind === "box"
+                ? [[shape.plan.x, shape.plan.y], [shape.plan.x + shape.plan.w, shape.plan.y + shape.plan.d]]
+                : shape.kind === "poly"
+                  ? shape.ring
+                  : [[shape.cx - shape.r, shape.cy - shape.r], [shape.cx + shape.r, shape.cy + shape.r]];
+            assert.ok(points.every(([x, y]) => x >= -0.001 && y >= -0.001 && x <= 30.001 && y <= 30.001), `${facing}: footprint`);
+        }
+    }
 });
 
 test("separated marks never touch", () => {

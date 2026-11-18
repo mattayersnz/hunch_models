@@ -45,7 +45,12 @@ snapshot and draws it, identically in Hunch's offline preview and on the hosted 
 
 Scenes are drawn from standard pieces, never by hand. Every model therefore looks
 like every other, a stranger can read one in a minute, and every piece can take a
-response. An unknown prop still draws, as a labelled crate.
+response. An unknown prop takes a constrained generic look when its name is clear, or
+draws as a labelled crate. A draft can choose the look explicitly without changing the
+prop's meaning (`ticket machine as appliance` in Markdown, or `pieceLooks` in JSON).
+People are soft peg figures made from the same rounded solids and warm material palette;
+their hair, skin and shirt variants are stable from their person id rather than inferred
+from their name.
 
 ## Writing a model
 

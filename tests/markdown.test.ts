@@ -33,6 +33,13 @@ test("canonical Markdown compiles through the model reader", () => {
     assert.ok(problems.some((problem) => problem.includes("extra prose outside a scene stays private")));
 });
 
+test("a piece may carry a generic appearance without changing its name", () => {
+    const { model } = readModelMarkdown(`# T\n:type: model\n\n## Station\n:with: ticket machine, ticket machine as appliance, medicine as container, day as usual\n. uses the ticket machine`);
+    assert.ok(model);
+    assert.deepEqual(model.scenes[0].pieces, ["ticket machine", "medicine", "day as usual"]);
+    assert.deepEqual(model.scenes[0].pieceLooks, { "ticket machine": "appliance", medicine: "container" });
+});
+
 test("Markdown needs an explicit model title and type", () => {
     assert.equal(readModelMarkdown(7).model, null);
     const result = readModelMarkdown("# Just a note\n\n## A scene");

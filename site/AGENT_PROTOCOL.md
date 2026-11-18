@@ -49,7 +49,12 @@ Young renters give up before they ever talk to a landlord.
   private: later prose, bullets, thoughts and tasks.
 - `## …` starts a scene without an emoji. An emoji-led line starts a scene with that emoji.
 - `:who: Name, about` starts a person. The text after the first comma is optional context.
-- `:with: …` is a comma-separated list of props. Unknown props draw as labelled crates.
+- `:with: …` is a comma-separated list of props. Keep each prop's real semantic name.
+  Unknown props receive a cautious generic shape when their name is unambiguous, and
+  otherwise draw as labelled crates. To choose deliberately, write `ticket machine as
+  appliance`. The available looks are `handheld`, `paper`, `container`, `appliance`,
+  `display`, `seat`, `surface`, `storage`, `vehicle`, `plant`, `building` and `fixture`.
+  The words before `as` remain the prop's name and are what actions match.
 - `. …` is something the current person does. Prose inside a scene is also an action.
 - `{…}` on a line of its own is something the current person thinks. A line that
   opens with a single `[` is not a thought and stays private. A line that starts with a

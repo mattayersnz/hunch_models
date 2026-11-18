@@ -4,6 +4,7 @@
 // model-note grammar, then hands the draft to readModel so there is still exactly one
 // place that cleans text, applies limits and computes ids.
 
+import { isPieceLook, type PieceLook } from "@hunch/kit";
 import type { Mark, ModelDraft, PersonDraft, SceneDraft } from "./format.ts";
 import { readModel, type ReadResult } from "./read.ts";
 
@@ -20,6 +21,7 @@ interface PersonBuild extends PersonDraft {
 interface SceneBuild extends SceneDraft {
     people: PersonBuild[];
     pieces: string[];
+    pieceLooks: Partial<Record<string, PieceLook>>;
 }
 
 const property = /^:([^:\n]{1,40}):\s*(.*)$/;
@@ -71,6 +73,18 @@ function plain(text: string): string {
     });
     out = out.replaceAll("**", "").replaceAll("__", "").replaceAll("`", "");
     return out;
+}
+
+/** `ticket machine as appliance`: meaning first, optional generic appearance last. */
+function pieceSpec(text: string): { name: string; look?: PieceLook } | null {
+    const cleaned = plain(text.trim());
+    if (!cleaned) return null;
+    const divider = cleaned.toLowerCase().lastIndexOf(" as ");
+    if (divider < 1) return { name: cleaned };
+    const look = cleaned.slice(divider + 4).trim().toLowerCase();
+    if (!isPieceLook(look)) return { name: cleaned };
+    const name = cleaned.slice(0, divider).trim();
+    return name ? { name, look } : null;
 }
 
 const MARKERS: readonly [string, Mark][] = [["?", "unsure"], ["*", "hunch"], ["!", "focus"]];
@@ -133,7 +147,7 @@ export function readModelMarkdown(input: unknown): MarkdownReadResult {
     const scenes: SceneBuild[] = [];
 
     const startScene = (name: string, emoji?: string): void => {
-        scene = { name: plain(name), ...(emoji ? { emoji } : {}), people: [], pieces: [] };
+        scene = { name: plain(name), ...(emoji ? { emoji } : {}), people: [], pieces: [], pieceLooks: Object.create(null) };
         scenes.push(scene);
         person = null;
     };
@@ -195,7 +209,12 @@ export function readModelMarkdown(input: unknown): MarkdownReadResult {
                 return;
             }
             if (name === "with" && scene) {
-                scene.pieces.push(...value.split(",").map((piece) => plain(piece.trim())).filter(Boolean));
+                for (const raw of value.split(",")) {
+                    const piece = pieceSpec(raw);
+                    if (!piece) continue;
+                    scene.pieces.push(piece.name);
+                    if (piece.look) scene.pieceLooks[piece.name.toLowerCase()] = piece.look;
+                }
                 return;
             }
             privateLine(problems, at, `:${name}:`);
